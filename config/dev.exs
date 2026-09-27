@@ -108,3 +108,9 @@ config :knra, :status_api,
   from: "KENTRADE",
   username: "kentrade-dev",
   password: "dev-status-password"
+
+# Local secrets such as real KenTrade trial credentials (git-ignored).
+# Set KENTRADE_MOCK=true to use the built-in mock even when this file exists.
+if File.exists?(Path.expand("dev.secret.exs", __DIR__)) do
+  import_config "dev.secret.exs"
+end

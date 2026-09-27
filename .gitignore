@@ -38,3 +38,6 @@ npm-debug.log
 
 /uploads/
 /tmp/
+
+# Local secrets (KenTrade credentials etc.)
+/config/*.secret.exs
