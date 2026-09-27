@@ -22,6 +22,36 @@ end
 
 config :knra, KnraWeb.Endpoint, http: [port: String.to_integer(System.get_env("PORT", "4000"))]
 
+# ---- KenTrade PGA Container Enquiry API
+# KENTRADE_BASE_URL   e.g. https://<trial or production host issued by KenTrade>
+# KENTRADE_USERNAME / KENTRADE_PASSWORD  (sent as sha256_hex("username:password"))
+# KENTRADE_AGENCY_CODE  sent in the From header
+# KENTRADE_MOCK=true   serve lookups from the built-in mock instead
+if config_env() != :test do
+  kentrade = Application.get_env(:knra, Knra.Integrations.KenTrade, [])
+
+  mock? =
+    case System.get_env("KENTRADE_MOCK") do
+      nil -> kentrade[:mock]
+      v -> v in ~w(true 1 yes)
+    end
+
+  config :knra, Knra.Integrations.KenTrade,
+    base_url: System.get_env("KENTRADE_BASE_URL", kentrade[:base_url]),
+    username: System.get_env("KENTRADE_USERNAME", kentrade[:username]),
+    password: System.get_env("KENTRADE_PASSWORD", kentrade[:password]),
+    agency_code: System.get_env("KENTRADE_AGENCY_CODE", kentrade[:agency_code]),
+    mock: mock?
+
+  if v = System.get_env("SIMULATORS_ENABLED") do
+    config :knra, simulators_enabled: v in ~w(true 1 yes)
+  end
+
+  if dir = System.get_env("UPLOADS_DIR") do
+    config :knra, uploads_dir: dir
+  end
+end
+
 if config_env() == :prod do
   database_url =
     System.get_env("DATABASE_URL") ||

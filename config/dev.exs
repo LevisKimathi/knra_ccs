@@ -90,3 +90,15 @@ config :phoenix_live_view,
 
 # Disable swoosh api client as it is only required for production adapters.
 config :swoosh, :api_client, false
+
+# ---- KNRA CCS development settings
+config :knra, simulators_enabled: true
+
+# Serve KenTrade lookups from the built-in mock until trial credentials are
+# configured (set KENTRADE_MOCK=false with the KENTRADE_* variables to use the real API).
+config :knra, Knra.Integrations.KenTrade,
+  base_url: "https://kentrade.mock",
+  username: "knra-dev",
+  password: "dev-password",
+  agency_code: "KNRA",
+  mock: true

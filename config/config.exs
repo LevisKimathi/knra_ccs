@@ -7,9 +7,45 @@
 # General application configuration
 import Config
 
+config :knra, :scopes,
+  user: [
+    default: true,
+    module: Knra.Accounts.Scope,
+    assign_key: :current_scope,
+    access_path: [:user, :id],
+    schema_key: :user_id,
+    schema_type: :id,
+    schema_table: :users,
+    test_data_fixture: Knra.AccountsFixtures,
+    test_setup_helper: :register_and_log_in_user
+  ]
+
 config :knra,
   ecto_repos: [Knra.Repo],
   generators: [timestamp_type: :utc_datetime]
+
+# ---- KNRA CCS application settings
+config :knra,
+  # RPM and M-Pesa simulators (enabled in dev only; see dev.exs)
+  simulators_enabled: false,
+  # Look up KenTrade in a background task after an RPM pass
+  async_lookup: true,
+  # Alarms waiting longer than this are highlighted in the alarm queue
+  alarm_sla_minutes: 15,
+  # Where field-inspection photos are stored
+  uploads_dir: Path.expand("../uploads", __DIR__),
+  mail_from: {"KNRA Cargo Screening", "no-reply@knra.go.ke"}
+
+# KenTrade PGA Container Enquiry API. Credentials are read from the
+# environment in config/runtime.exs.
+config :knra, Knra.Integrations.KenTrade,
+  base_url: nil,
+  username: nil,
+  password: nil,
+  agency_code: nil,
+  mock: false,
+  receive_timeout: 10_000,
+  max_retries: 2
 
 # Configure the endpoint
 config :knra, KnraWeb.Endpoint,
