@@ -34,7 +34,13 @@ config :knra,
   alarm_sla_minutes: 15,
   # Where field-inspection photos are stored
   uploads_dir: Path.expand("../uploads", __DIR__),
-  mail_from: {"KNRA Cargo Screening", "no-reply@knra.go.ke"}
+  mail_from: {"KNRA Cargo Screening", "no-reply@knra.go.ke"},
+  # Container status API: without an arrival identifier, only screenings this
+  # recent are reported (containers are reused across voyages)
+  status_window_days: 60
+
+# Credentials KenTrade uses to call our container status API (set in runtime.exs)
+config :knra, :status_api, from: nil, username: nil, password: nil
 
 # KenTrade PGA Container Enquiry API. Credentials are read from the
 # environment in config/runtime.exs.

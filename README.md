@@ -69,6 +69,41 @@ mix test
 mix precommit      # compile with warnings as errors, format, test
 ```
 
+## Container status API (for KenTrade)
+
+`POST /api/kentrade/container-status` — up to 100 containers per call. Authentication mirrors
+KenTrade's own API: `From: <STATUS_API_FROM>` and
+`Authorization: Basic <sha256_hex("STATUS_API_USERNAME:STATUS_API_PASSWORD")>`.
+
+```json
+[
+  {"containerNumber": "MSKU9930211"},
+  {"containerNumber": "PONU3345671", "billOfLadingNumber": "PONUBL2026033456"}
+]
+```
+
+Each response item echoes `containerNumber` and gives `status`: `CLEARED`, `DETAINED`,
+`IN_PROGRESS` or `NOT_FOUND` (plus `INVALID_REQUEST` for a malformed item). Found items also carry
+`stage`, `applicationReference`, `screenedAt`, `clearedAt`, `certificateNumber`,
+`manifestNumber`, `billOfLadingNumbers`, `ucrNumbers` and `matchedBy`.
+
+**Reused containers.** One container number can have many screenings, one per arrival. Each
+screening stores the manifest, B/L and UCR numbers KenTrade returned at scan time.
+
+- If the request item includes `manifestNumber`, `billOfLadingNumber` or `ucrNumber`, only the
+  screening for that arrival is returned (`matchedBy: "ARRIVAL"`); if that arrival has not been
+  screened the answer is `NOT_FOUND`, even when an earlier voyage was cleared.
+- With only `containerNumber`, the latest screening is returned if it is within
+  `STATUS_WINDOW_DAYS` (default 60) — `matchedBy: "CONTAINER"`. Older screenings are treated as a
+  previous arrival (`NOT_FOUND`).
+- If the only recent screening has no KenTrade identifiers (lookup failed at scan time) it is
+  returned with `matchedBy: "CONTAINER_ONLY"`.
+
+A new RPM pass is refused only while a *recent, open* screening exists for the container; detained
+screenings and screenings older than the window do not block a new arrival.
+
+Every inbound call is logged under *Integrations*.
+
 ## Configuration
 
 KenTrade PGA Container Enquiry API (`config/runtime.exs`):
@@ -79,6 +114,8 @@ KenTrade PGA Container Enquiry API (`config/runtime.exs`):
 | `KENTRADE_USERNAME` / `KENTRADE_PASSWORD` | Sent as `Authorization: Basic <sha256_hex("username:password")>` |
 | `KENTRADE_AGENCY_CODE` | Sent in the `From` header |
 | `KENTRADE_MOCK` | `true` serves lookups from the built-in mock (the default in dev) |
+| `STATUS_API_FROM` / `STATUS_API_USERNAME` / `STATUS_API_PASSWORD` | Credentials KenTrade uses to call our container status API |
+| `STATUS_WINDOW_DAYS` | Container-only status queries ignore screenings older than this (default 60) |
 
 Other settings:
 

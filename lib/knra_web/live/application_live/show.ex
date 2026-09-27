@@ -779,7 +779,9 @@ defmodule KnraWeb.ApplicationLive.Show do
       to_form(
         Billing.change_bank_payment(%{
           "amount_kes" => app.invoice && Invoice.balance(app.invoice)
-        }), as: :payment)
+        }),
+        as: :payment
+      )
     end)
   end
 

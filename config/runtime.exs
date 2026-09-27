@@ -43,6 +43,20 @@ if config_env() != :test do
     agency_code: System.get_env("KENTRADE_AGENCY_CODE", kentrade[:agency_code]),
     mock: mock?
 
+  # ---- Container status API called by KenTrade
+  # STATUS_API_FROM      value KenTrade sends in the From header
+  # STATUS_API_USERNAME / STATUS_API_PASSWORD  (KenTrade sends sha256_hex("username:password"))
+  status_api = Application.get_env(:knra, :status_api, [])
+
+  config :knra, :status_api,
+    from: System.get_env("STATUS_API_FROM", status_api[:from]),
+    username: System.get_env("STATUS_API_USERNAME", status_api[:username]),
+    password: System.get_env("STATUS_API_PASSWORD", status_api[:password])
+
+  if days = System.get_env("STATUS_WINDOW_DAYS") do
+    config :knra, status_window_days: String.to_integer(days)
+  end
+
   if v = System.get_env("SIMULATORS_ENABLED") do
     config :knra, simulators_enabled: v in ~w(true 1 yes)
   end

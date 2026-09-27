@@ -17,6 +17,10 @@ defmodule KnraWeb.Router do
     plug :accepts, ["json"]
   end
 
+  pipeline :kentrade_api do
+    plug KnraWeb.Plugs.ApiClientAuth
+  end
+
   # Other scopes may use custom stacks.
   # scope "/api", KnraWeb do
   #   pipe_through :api
@@ -37,6 +41,14 @@ defmodule KnraWeb.Router do
       live_dashboard "/dashboard", metrics: KnraWeb.Telemetry
       forward "/mailbox", Plug.Swoosh.MailboxPreview
     end
+  end
+
+  ## Machine API for KenTrade (From + SHA-256 Authorization header, no session)
+
+  scope "/api/kentrade", KnraWeb.Api do
+    pipe_through [:api, :kentrade_api]
+
+    post "/container-status", ContainerStatusController, :create
   end
 
   ## Authenticated staff routes

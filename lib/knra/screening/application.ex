@@ -22,6 +22,10 @@ defmodule Knra.Screening.Application do
     field :goods_description, :string
     field :hs_code, :string
     field :ucr_number, :string
+    # Which arrival this screening belongs to (containers are reused across voyages)
+    field :manifest_number, :string
+    field :arrived_at, :utc_datetime
+    field :consignment_refs, {:array, :string}, default: []
 
     field :certificate_number, :string
     field :cleared_at, :utc_datetime
@@ -52,6 +56,12 @@ defmodule Knra.Screening.Application do
   @doc "Display container number as `MSKU 7741293`."
   def display_container(<<prefix::binary-4, rest::binary>>), do: prefix <> " " <> rest
   def display_container(other), do: other
+
+  @doc "Normalises a manifest / B/L / UCR for matching: upper case, no spaces or hyphens."
+  def normalise_ref(nil), do: nil
+
+  def normalise_ref(ref),
+    do: ref |> to_string() |> String.upcase() |> String.replace(~r/[\s\-]/, "")
 
   def current_report(%__MODULE__{reports: [r | _]}), do: r
   def current_report(_), do: nil

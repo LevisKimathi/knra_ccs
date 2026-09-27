@@ -102,3 +102,9 @@ config :knra, Knra.Integrations.KenTrade,
   password: "dev-password",
   agency_code: "KNRA",
   mock: true
+
+# Development credentials for KenTrade calling our container status API
+config :knra, :status_api,
+  from: "KENTRADE",
+  username: "kentrade-dev",
+  password: "dev-status-password"

@@ -51,7 +51,8 @@ defmodule KnraWeb.AlarmQueueLive do
             <div :if={a.importer_name} class="text-xs text-subtle">{a.importer_name}</div>
           </div>
           <div class="text-xs font-bold text-bad">
-            Gamma {a.gamma_cps} cps<br /><span class="font-normal text-muted">
+            Gamma {a.gamma_cps} cps<br />
+            <span class="font-normal text-muted">
               Neutron {a.neutron_cps} cps
             </span>
           </div>

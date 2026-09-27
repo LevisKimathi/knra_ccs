@@ -23,7 +23,8 @@ defmodule KnraWeb.Admin.IntegrationsLive do
     >
       <.page_header title="Integrations">
         <:subtitle>
-          KenTrade PGA Container Enquiry API — queried on every RPM pass with the OCR-read container number.
+          Outbound: KenTrade PGA Container Enquiry API, queried on every RPM pass with the OCR-read container number.
+          Inbound: KenTrade querying our container status API (<span class="font-mono">POST /api/kentrade/container-status</span>).
           Every request and response is logged here for dispute resolution.
         </:subtitle>
       </.page_header>
@@ -69,12 +70,23 @@ defmodule KnraWeb.Admin.IntegrationsLive do
         <div class="min-w-64 flex-1">
           <.input field={@filter[:q]} placeholder="Container number" phx-debounce="300" />
         </div>
+        <div class="w-60">
+          <.input
+            field={@filter[:system]}
+            type="select"
+            prompt="Both directions"
+            options={[
+              {"Outbound — container enquiry", "kentrade"},
+              {"Inbound — status queries", "kentrade_inbound"}
+            ]}
+          />
+        </div>
         <div class="w-52">
           <.input
             field={@filter[:outcome]}
             type="select"
             prompt="All outcomes"
-            options={~w(found transit not_found invalid_request unauthorized error)}
+            options={~w(ok found transit not_found invalid_request unauthorized error)}
           />
         </div>
       </.form>
@@ -82,7 +94,7 @@ defmodule KnraWeb.Admin.IntegrationsLive do
       <.card padded={false}>
         <.thead cols={@cols}>
           <div>Time</div>
-          <div>Container</div>
+          <div>Direction / containers</div>
           <div>Outcome</div>
           <div>HTTP</div>
           <div>Duration</div>
@@ -96,13 +108,18 @@ defmodule KnraWeb.Admin.IntegrationsLive do
             phx-value-id={l.id}
           >
             <div class="font-mono text-xs text-muted">{Knra.Time.format(l.inserted_at)}</div>
-            <div class="font-mono text-xs">{l.object_ref}</div>
+            <div class="min-w-0">
+              <div class="text-[11px] font-bold uppercase text-subtle">
+                {if l.system == "kentrade_inbound", do: "← Inbound", else: "→ Outbound"}
+              </div>
+              <div class="truncate font-mono text-xs">{l.object_ref}</div>
+            </div>
             <div>
               <.pill tone={outcome_tone(l.outcome)}>{l.outcome}</.pill>
             </div>
             <div class="font-mono text-xs">{l.http_status || "—"}</div>
             <div class="font-mono text-xs">{l.duration_ms} ms</div>
-            <div class="truncate text-muted">{l.response["message"]}</div>
+            <div class="truncate text-muted">{log_message(l)}</div>
           </div>
           <div :if={@open == l.id} class="grid gap-3 bg-panel px-5 py-3 md:grid-cols-2">
             <div>
@@ -151,7 +168,16 @@ defmodule KnraWeb.Admin.IntegrationsLive do
   end
 
   defp outcome_tone("found"), do: :ok
+  defp outcome_tone("ok"), do: :ok
   defp outcome_tone("transit"), do: :info
   defp outcome_tone("not_found"), do: :warn
   defp outcome_tone(_), do: :bad
+
+  defp log_message(%{system: "kentrade_inbound", response: %{"items" => items}}) do
+    items
+    |> Enum.frequencies_by(& &1["status"])
+    |> Enum.map_join(" · ", fn {s, n} -> "#{n} #{s}" end)
+  end
+
+  defp log_message(l), do: l.response["message"]
 end

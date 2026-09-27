@@ -209,10 +209,19 @@ defmodule Knra.Screening do
     end
   end
 
+  # A second pass while a recent screening is still open is almost certainly the
+  # same arrival, so it is refused. Containers are reused, so a detained or stale
+  # (older than the status window) screening does not block a new arrival.
   defp no_open_application(container) do
+    since =
+      DateTime.add(Knra.Time.now(), -Knra.Screening.StatusQuery.window_days() * 86_400, :second)
+
     open =
       Repo.exists?(
-        from a in Application, where: a.container_number == ^container and a.stage != "cleared"
+        from a in Application,
+          where:
+            a.container_number == ^container and a.stage not in ["cleared", "detained"] and
+              a.scanned_at >= ^since
       )
 
     if open, do: {:error, :already_in_screening}, else: :ok
@@ -282,9 +291,23 @@ defmodule Knra.Screening do
         many -> "#{hd(many)} (+#{length(many) - 1} more)"
       end
 
+    vessel = movement["vesselCall"] || %{}
+
+    refs =
+      [
+        vessel["manifestNumber"]
+        | Enum.flat_map(consignments, &[&1["billOfLadingNumber"], &1["ucrNumber"]])
+      ]
+      |> Enum.map(&Application.normalise_ref/1)
+      |> Enum.reject(&(&1 in [nil, ""]))
+      |> Enum.uniq()
+
     attrs = %{
       lookup_status: "found",
       lookup_message: r.message,
+      manifest_number: vessel["manifestNumber"],
+      arrived_at: parse_datetime(vessel["estimatedArrival"]),
+      consignment_refs: refs,
       consignment: %{
         "movement" => movement,
         "warnings" => r.warnings,
@@ -330,6 +353,15 @@ defmodule Knra.Screening do
   defp lookup_attrs({:error, %KenTrade.Result{} = r}) do
     {%{lookup_status: "error", lookup_message: "#{r.status}: #{r.message}"},
      "KenTrade lookup failed", "#{r.status}: #{r.message}"}
+  end
+
+  defp parse_datetime(nil), do: nil
+
+  defp parse_datetime(iso) do
+    case DateTime.from_iso8601(iso) do
+      {:ok, dt, _} -> DateTime.truncate(dt, :second)
+      _ -> nil
+    end
   end
 
   ## ------------------------------------------------------------------

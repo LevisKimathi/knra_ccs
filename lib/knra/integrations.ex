@@ -23,6 +23,12 @@ defmodule Knra.Integrations do
       end
     end)
     |> then(fn q ->
+      case filters["system"] do
+        sys when sys not in [nil, ""] -> where(q, [l], l.system == ^sys)
+        _ -> q
+      end
+    end)
+    |> then(fn q ->
       case filters["outcome"] do
         o when o not in [nil, ""] -> where(q, [l], l.outcome == ^o)
         _ -> q
