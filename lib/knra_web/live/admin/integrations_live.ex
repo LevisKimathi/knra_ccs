@@ -86,7 +86,7 @@ defmodule KnraWeb.Admin.IntegrationsLive do
             field={@filter[:outcome]}
             type="select"
             prompt="All outcomes"
-            options={~w(ok found transit not_found invalid_request unauthorized error)}
+            options={~w(ok found transit not_found invalid_request unauthorized forbidden error)}
           />
         </div>
       </.form>

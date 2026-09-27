@@ -133,6 +133,17 @@ defmodule Knra.Integrations.KenTrade do
     }
   end
 
+  # A non-JSON 403 comes from KenTrade's gateway/SSO layer, before the API checks
+  # credentials — typically the caller's IP is not allow-listed.
+  defp parse(403, _body) do
+    %Result{
+      http_status: 403,
+      status: "FORBIDDEN",
+      message:
+        "KenTrade gateway refused access (HTTP 403) before checking credentials — check IP allow-listing and API access for this account."
+    }
+  end
+
   defp parse(http_status, body) do
     %Result{
       http_status: http_status,

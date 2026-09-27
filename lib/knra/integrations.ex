@@ -67,7 +67,7 @@ defmodule Knra.Integrations do
       total: stats |> Map.values() |> Enum.sum(),
       failures:
         Map.get(stats, "error", 0) + Map.get(stats, "unauthorized", 0) +
-          Map.get(stats, "invalid_request", 0),
+          Map.get(stats, "invalid_request", 0) + Map.get(stats, "forbidden", 0),
       last: last,
       last_ok: last_ok,
       healthy?: is_nil(last) or last.outcome in ["found", "transit", "not_found"]

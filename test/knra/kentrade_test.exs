@@ -61,6 +61,19 @@ defmodule Knra.Integrations.KenTradeTest do
              KenTrade.container_enquiry("CSQU3054383")
   end
 
+  test "reports a gateway HTML 403 as FORBIDDEN" do
+    Req.Test.stub(KenTrade, fn conn ->
+      conn
+      |> Plug.Conn.put_resp_content_type("text/html")
+      |> Plug.Conn.send_resp(403, "<html>Access Denied</html>")
+    end)
+
+    assert {:error, %KenTrade.Result{status: "FORBIDDEN", http_status: 403}} =
+             KenTrade.container_enquiry("CSQU3054383")
+
+    assert [%{outcome: "forbidden"}] = Knra.Integrations.list_logs()
+  end
+
   test "reports transport failures as ERROR" do
     Req.Test.stub(KenTrade, &Req.Test.transport_error(&1, :econnrefused))
 
