@@ -9,7 +9,9 @@ defmodule Knra.Accounts.UserNotifier do
     email =
       new()
       |> to(recipient)
-      |> from(Application.get_env(:knra, :mail_from, {"KNRA Cargo Screening", "no-reply@knra.go.ke"}))
+      |> from(
+        Application.get_env(:knra, :mail_from, {"KNRA Cargo Screening", "no-reply@knra.go.ke"})
+      )
       |> subject(subject)
       |> text_body(body)
 

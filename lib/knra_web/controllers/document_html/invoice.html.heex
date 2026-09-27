@@ -1,0 +1,89 @@
+<.sheet back={~p"/applications/#{@app.reference}"}>
+  <div class="mt-7 mb-1.5 flex items-start justify-between gap-4">
+    <h2 class="text-xl font-bold tracking-wide">Screening Fee Invoice</h2>
+    <span class={[
+      "rounded px-3.5 py-1 text-[13px] font-bold",
+      if(@invoice.status == "paid", do: "bg-ok-soft text-ok", else: "bg-warn-soft text-warn")
+    ]}>
+      {if @invoice.status == "paid", do: "PAID", else: "PENDING"}
+    </span>
+  </div>
+  <div class="mb-7 font-mono text-[13px] text-muted">
+    {@invoice.number} · issued {Knra.Time.format(@invoice.inserted_at)}
+  </div>
+
+  <.kv rows={[
+    {"Bill to", @app.importer_name},
+    {"Importer PIN",
+     get_in(@app.consignment, ["movement", "consignments", Access.at(0), "importer", "pin"])},
+    {"UCR", @app.ucr_number},
+    {"Container", container(@app.container_number)},
+    {"Goods / HS code", "#{@app.goods_description || "—"} · #{@app.hs_code || "—"}"},
+    {"Occupancy", "#{@app.occupancy_ref} · #{@app.lane.name}"},
+    {"RPM pass", Knra.Time.format(@app.scanned_at)},
+    {"Screening point", "Port of Mombasa"}
+  ]} />
+
+  <div class="my-7 overflow-hidden rounded border border-line">
+    <div class="grid grid-cols-[1fr_50px_110px_110px] gap-2.5 border-b border-line bg-panel px-4 py-2.5 text-[11px] font-bold uppercase tracking-wide text-muted">
+      <div>Item</div>
+      <div>Qty</div>
+      <div>Unit (USD)</div>
+      <div>Amount (USD)</div>
+    </div>
+    <div class="grid grid-cols-[1fr_50px_110px_110px] gap-2.5 px-4 py-3 text-[13px]">
+      <div>{@invoice.description} — {container(@app.container_number)}</div>
+      <div>1</div>
+      <div class="font-mono">{money(@invoice.amount_usd)}</div>
+      <div class="font-mono">{money(@invoice.amount_usd)}</div>
+    </div>
+    <div class="grid grid-cols-[1fr_220px] gap-2.5 border-t border-line px-4 py-3 text-[13px] font-bold">
+      <div class="text-right">Total due</div>
+      <div class="font-mono">USD {money(@invoice.amount_usd)}</div>
+    </div>
+    <div class="grid grid-cols-[1fr_220px] gap-2.5 px-4 pb-3 text-xs text-muted">
+      <div class="text-right">Payable in Kenya shillings</div>
+      <div class="font-mono">KES {money(@invoice.amount_kes)}</div>
+    </div>
+  </div>
+
+  <div :if={@invoice.payments != []} class="mb-6 text-[13px]">
+    <div class="mb-1 font-bold">Payments received</div>
+    <div :for={p <- @invoice.payments} class="text-muted">
+      {Knra.Billing.Payment.method_label(p.method)} {p.reference} — KES {money(p.amount_kes)} on {Knra.Time.format(
+        p.received_at
+      )}
+    </div>
+  </div>
+
+  <div class="rounded border border-line bg-panel px-5 py-4 text-[13px] leading-7">
+    <div class="mb-2 font-bold">How to pay</div>
+    <div class="font-semibold">M-Pesa (Paybill)</div>
+    <div class="mb-3">
+      Paybill <strong>222222</strong>
+      · Account number <strong class="font-mono">{@invoice.number}</strong>
+      · Amount KES {money(@invoice.amount_kes)}
+    </div>
+    <div class="font-semibold">Bank transfer</div>
+    <div class="grid grid-cols-[150px_1fr] gap-x-3">
+      <div class="text-subtle">Bank</div>
+      <div>Kenya Commercial Bank (KCB) — Mombasa, Nkrumah Road</div>
+      <div class="text-subtle">Account name</div>
+      <div>Kenya Nuclear Regulatory Authority</div>
+      <div class="text-subtle">Account number</div>
+      <div class="font-mono">1179 640 882</div>
+      <div class="text-subtle">SWIFT / BIC</div>
+      <div class="font-mono">KCBLKENX</div>
+      <div class="text-subtle">Payment reference</div>
+      <div class="font-mono">{@invoice.number}</div>
+    </div>
+    <div class="mt-2.5 text-muted">
+      Quote the invoice number exactly so the payment is matched. The screening certificate is issued once
+      the fee is paid and the KNRA screening report is approved.
+    </div>
+  </div>
+
+  <div class="mt-9 text-[11px] leading-normal text-subtle">
+    Kenya Nuclear Regulatory Authority · System-generated invoice, valid without signature.
+  </div>
+</.sheet>

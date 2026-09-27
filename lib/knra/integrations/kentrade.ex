@@ -28,7 +28,15 @@ defmodule Knra.Integrations.KenTrade do
 
   defmodule Result do
     @moduledoc "Parsed enquiry response."
-    defstruct [:status, :http_status, :message, :container_number, :generated_at, warnings: [], movements: []]
+    defstruct [
+      :status,
+      :http_status,
+      :message,
+      :container_number,
+      :generated_at,
+      warnings: [],
+      movements: []
+    ]
   end
 
   @doc """
@@ -69,7 +77,8 @@ defmodule Knra.Integrations.KenTrade do
   end
 
   @doc "Normalises a container number the way TFP does: upper case, no spaces or hyphens."
-  def normalise(number), do: number |> to_string() |> String.upcase() |> String.replace(~r/[\s\-]/, "")
+  def normalise(number),
+    do: number |> to_string() |> String.upcase() |> String.replace(~r/[\s\-]/, "")
 
   def config, do: Application.get_env(:knra, __MODULE__, [])
 
@@ -102,7 +111,10 @@ defmodule Knra.Integrations.KenTrade do
     |> put_opt("referenceNumber", opts[:reference_number])
     |> put_opt("locationCode", opts[:location_code])
     |> put_opt("officerId", opts[:officer_id])
-    |> put_opt("eventDateTime", opts[:event_datetime] && Knra.Time.iso_local(opts[:event_datetime]))
+    |> put_opt(
+      "eventDateTime",
+      opts[:event_datetime] && Knra.Time.iso_local(opts[:event_datetime])
+    )
     |> put_opt("filters", opts[:filters])
   end
 
@@ -122,7 +134,11 @@ defmodule Knra.Integrations.KenTrade do
   end
 
   defp parse(http_status, body) do
-    %Result{http_status: http_status, status: status_for(http_status), message: "Unexpected response from KenTrade: #{String.slice(to_string(body), 0, 200)}"}
+    %Result{
+      http_status: http_status,
+      status: status_for(http_status),
+      message: "Unexpected response from KenTrade: #{String.slice(to_string(body), 0, 200)}"
+    }
   end
 
   defp status_for(200), do: "FOUND"
@@ -135,5 +151,6 @@ defmodule Knra.Integrations.KenTrade do
     %Result{status: "ERROR", message: "KenTrade unreachable: #{Exception.message(exception)}"}
   end
 
-  defp result_to_log(%Result{} = r), do: r |> Map.from_struct() |> Map.new(fn {k, v} -> {to_string(k), v} end)
+  defp result_to_log(%Result{} = r),
+    do: r |> Map.from_struct() |> Map.new(fn {k, v} -> {to_string(k), v} end)
 end

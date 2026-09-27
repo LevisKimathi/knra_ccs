@@ -38,7 +38,10 @@ defmodule Knra.Screening.Adjudication do
     |> validate_required([:decision, :classification, :reason], message: "is required")
     |> validate_inclusion(:decision, @decisions)
     |> validate_inclusion(:classification, @classifications)
-    |> validate_length(:reason, min: 10, message: "must explain the decision (at least 10 characters)")
+    |> validate_length(:reason,
+      min: 10,
+      message: "must explain the decision (at least 10 characters)"
+    )
     |> unique_constraint(:application_id)
   end
 end

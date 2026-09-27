@@ -125,7 +125,17 @@ defmodule Knra.Audit do
       |> order_by(asc: :id)
       |> Repo.stream(max_rows: 1000)
       |> Enum.reduce_while(@genesis, fn e, prev ->
-        attrs = Map.take(e, [:object_type, :object_ref, :actor_id, :actor_name, :action, :note, :prev_hash, :inserted_at])
+        attrs =
+          Map.take(e, [
+            :object_type,
+            :object_ref,
+            :actor_id,
+            :actor_name,
+            :action,
+            :note,
+            :prev_hash,
+            :inserted_at
+          ])
 
         if e.prev_hash == prev and compute_hash(attrs) == e.hash,
           do: {:cont, e.hash},
@@ -146,7 +156,15 @@ defmodule Knra.Audit do
 
     rows =
       Enum.map(entries, fn e ->
-        [DateTime.to_iso8601(e.inserted_at), e.object_type, e.object_ref, e.actor_name, e.action, e.note || "", e.hash]
+        [
+          DateTime.to_iso8601(e.inserted_at),
+          e.object_type,
+          e.object_ref,
+          e.actor_name,
+          e.action,
+          e.note || "",
+          e.hash
+        ]
         |> Enum.map_join(",", &csv_cell/1)
         |> Kernel.<>("\n")
       end)
@@ -156,7 +174,10 @@ defmodule Knra.Audit do
 
   defp csv_cell(v) do
     v = to_string(v)
-    if String.contains?(v, [",", "\"", "\n"]), do: ~s("#{String.replace(v, "\"", "\"\"")}"), else: v
+
+    if String.contains?(v, [",", "\"", "\n"]),
+      do: ~s("#{String.replace(v, "\"", "\"\"")}"),
+      else: v
   end
 
   defp compute_hash(attrs) do
@@ -179,7 +200,10 @@ defmodule Knra.Audit do
   end
 
   defp actor_fields(%Scope{user: user}), do: actor_fields(user)
-  defp actor_fields(%User{id: id, name: name, email: email}), do: {id, if(name in [nil, ""], do: email, else: name)}
+
+  defp actor_fields(%User{id: id, name: name, email: email}),
+    do: {id, if(name in [nil, ""], do: email, else: name)}
+
   defp actor_fields(name) when is_binary(name), do: {nil, name}
 
   defp blank_to_nil(v) when v in [nil, ""], do: nil

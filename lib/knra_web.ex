@@ -86,6 +86,7 @@ defmodule KnraWeb do
       import Phoenix.HTML
       # Core UI components
       import KnraWeb.CoreComponents
+      import KnraWeb.UI
 
       # Common modules used in templates
       alias Phoenix.LiveView.JS

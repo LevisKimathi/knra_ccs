@@ -19,12 +19,17 @@ defmodule Knra.AccountsFixtures do
   end
 
   def unconfirmed_user_fixture(attrs \\ %{}) do
+    attrs = Enum.into(attrs, %{})
+    {profile, attrs} = Map.split(attrs, [:name, :role, :station, :status])
+
     {:ok, user} =
       attrs
       |> valid_user_attributes()
       |> Accounts.register_user()
 
     user
+    |> Ecto.Changeset.change(Map.merge(%{name: "Test User", role: "cas_operator"}, profile))
+    |> Knra.Repo.update!()
   end
 
   def user_fixture(attrs \\ %{}) do

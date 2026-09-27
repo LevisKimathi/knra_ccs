@@ -15,20 +15,32 @@ defmodule Knra.Notifications do
 
   def notify(roles, level, message, path \\ nil) do
     for role <- List.wrap(roles) do
-      Phoenix.PubSub.broadcast(Knra.PubSub, topic(role), {:notification, %{level: level, message: message, path: path}})
+      Phoenix.PubSub.broadcast(
+        Knra.PubSub,
+        topic(role),
+        {:notification, %{level: level, message: message, path: path}}
+      )
     end
 
     :ok
   end
 
   def alarm_raised(%Application{} = app) do
-    notify(["cas_operator", "supervisor"], :error,
+    notify(
+      ["cas_operator", "supervisor"],
+      :error,
       "Radiation alarm on #{lane(app)} — #{c(app)} awaiting adjudication.",
-      "/applications/#{app.reference}")
+      "/applications/#{app.reference}"
+    )
   end
 
   def secondary_assigned(%Application{} = app) do
-    notify("field_officer", :info, "#{c(app)} diverted to secondary inspection.", "/applications/#{app.reference}")
+    notify(
+      "field_officer",
+      :info,
+      "#{c(app)} diverted to secondary inspection.",
+      "/applications/#{app.reference}"
+    )
   end
 
   def detention(%Application{} = app, scope) do
@@ -44,13 +56,18 @@ defmodule Knra.Notifications do
   end
 
   def cleared(%Application{} = app) do
-    notify(["cas_operator", "checking_officer", "verification_officer", "supervisor"], :info,
+    notify(
+      ["cas_operator", "checking_officer", "verification_officer", "supervisor"],
+      :info,
       "#{c(app)} cleared — certificate #{app.certificate_number} issued.",
-      "/applications/#{app.reference}")
+      "/applications/#{app.reference}"
+    )
   end
 
   def device_fault(lane, scope, reason) do
-    msg = "#{lane.name} (#{lane.device_code}) marked out of service by #{scope.user.name}: #{reason}"
+    msg =
+      "#{lane.name} (#{lane.device_code}) marked out of service by #{scope.user.name}: #{reason}"
+
     notify(["supervisor", "cas_operator"], :error, msg, "/admin/devices")
     email_supervisors("RPM out of service: #{lane.name}", msg)
   end

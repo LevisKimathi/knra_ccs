@@ -9,8 +9,10 @@ defmodule Knra.Accounts.Policy do
   alias Knra.Accounts.{Scope, User}
 
   @permissions %{
-    view_applications: ~w(cas_operator field_officer checking_officer verification_officer supervisor),
-    print_documents: ~w(cas_operator field_officer checking_officer verification_officer supervisor),
+    view_applications:
+      ~w(cas_operator field_officer checking_officer verification_officer supervisor),
+    print_documents:
+      ~w(cas_operator field_officer checking_officer verification_officer supervisor),
     adjudicate: ~w(cas_operator),
     retry_lookup: ~w(cas_operator supervisor),
     record_payment: ~w(cas_operator supervisor),

@@ -89,8 +89,11 @@ defmodule Knra.Accounts do
     User
     |> then(fn q ->
       case filters["q"] do
-        v when v not in [nil, ""] -> where(q, [u], ilike(u.name, ^"%#{v}%") or ilike(u.email, ^"%#{v}%"))
-        _ -> q
+        v when v not in [nil, ""] ->
+          where(q, [u], ilike(u.name, ^"%#{v}%") or ilike(u.email, ^"%#{v}%"))
+
+        _ ->
+          q
       end
     end)
     |> then(fn q ->
@@ -119,7 +122,14 @@ defmodule Knra.Accounts do
     with :ok <- Policy.authorize(scope, :manage_users) do
       Repo.transact(fn ->
         with {:ok, user} <- %User{} |> User.admin_changeset(attrs) |> Repo.insert() do
-          Audit.log(scope, :user, user.email, "Account created — #{User.role_label(user.role)}", user.station)
+          Audit.log(
+            scope,
+            :user,
+            user.email,
+            "Account created — #{User.role_label(user.role)}",
+            user.station
+          )
+
           {:ok, user}
         end
       end)
@@ -184,7 +194,9 @@ defmodule Knra.Accounts do
   end
 
   def touch_last_active(%User{id: id}) do
-    Repo.update_all(from(u in User, where: u.id == ^id), set: [last_active_at: DateTime.utc_now(:second)])
+    Repo.update_all(from(u in User, where: u.id == ^id),
+      set: [last_active_at: DateTime.utc_now(:second)]
+    )
   end
 
   defp expire_tokens(user) do

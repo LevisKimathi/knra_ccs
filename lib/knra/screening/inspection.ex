@@ -38,11 +38,16 @@ defmodule Knra.Screening.Inspection do
     insp
     |> cast(attrs, [:isotope, :dose_rate_usv_h, :findings, :outcome])
     |> update_change(:findings, &String.trim/1)
-    |> validate_required([:isotope, :dose_rate_usv_h, :findings, :outcome], message: "is required")
+    |> validate_required([:isotope, :dose_rate_usv_h, :findings, :outcome],
+      message: "is required"
+    )
     |> validate_inclusion(:isotope, @isotopes)
     |> validate_inclusion(:outcome, @outcomes)
     |> validate_number(:dose_rate_usv_h, greater_than_or_equal_to: 0, less_than: 100_000)
-    |> validate_length(:findings, min: 10, message: "must describe what was inspected (at least 10 characters)")
+    |> validate_length(:findings,
+      min: 10,
+      message: "must describe what was inspected (at least 10 characters)"
+    )
     |> unique_constraint(:application_id)
   end
 end

@@ -31,7 +31,13 @@ defmodule Knra.Screening do
   ## ------------------------------------------------------------------
   ## Queries
 
-  @preloads [:lane, :adjudication, inspection: :user, invoice: :payments, reports: [:maker, :checker]]
+  @preloads [
+    :lane,
+    :adjudication,
+    inspection: :user,
+    invoice: :payments,
+    reports: [:maker, :checker]
+  ]
 
   def get_application!(reference) do
     Application
@@ -40,7 +46,9 @@ defmodule Knra.Screening do
   end
 
   def get_application_by_certificate(number) do
-    case Repo.get_by(Application, certificate_number: String.trim(number || "") |> String.upcase()) do
+    case Repo.get_by(Application,
+           certificate_number: String.trim(number || "") |> String.upcase()
+         ) do
       nil -> nil
       app -> Repo.preload(app, :lane)
     end
@@ -149,11 +157,25 @@ defmodule Knra.Screening do
           })
 
         disp = Application.display_container(container)
-        Audit.log(lane_actor <> " · OCR camera", :application, reference, "Container #{disp} read by OCR on RPM pass", event.occupancy_ref)
 
-        Audit.log(lane_actor, :application, reference,
-          if(event.alarmed, do: "Radiation alarm — occupancy held for adjudication", else: "Occupancy recorded — no alarm"),
-          "Gamma #{event.gamma_cps} cps · neutron #{event.neutron_cps} cps")
+        Audit.log(
+          lane_actor <> " · OCR camera",
+          :application,
+          reference,
+          "Container #{disp} read by OCR on RPM pass",
+          event.occupancy_ref
+        )
+
+        Audit.log(
+          lane_actor,
+          :application,
+          reference,
+          if(event.alarmed,
+            do: "Radiation alarm — occupancy held for adjudication",
+            else: "Occupancy recorded — no alarm"
+          ),
+          "Gamma #{event.gamma_cps} cps · neutron #{event.neutron_cps} cps"
+        )
 
         Billing.raise_invoice!(app, scanned_at)
         app
@@ -189,7 +211,9 @@ defmodule Knra.Screening do
 
   defp no_open_application(container) do
     open =
-      Repo.exists?(from a in Application, where: a.container_number == ^container and a.stage != "cleared")
+      Repo.exists?(
+        from a in Application, where: a.container_number == ^container and a.stage != "cleared"
+      )
 
     if open, do: {:error, :already_in_screening}, else: :ok
   end
@@ -219,7 +243,11 @@ defmodule Knra.Screening do
     {attrs, action, note} = lookup_attrs(result)
 
     Repo.transaction(fn ->
-      updated = app |> Ecto.Changeset.change(Map.put(attrs, :lookup_at, Knra.Time.now())) |> Repo.update!()
+      updated =
+        app
+        |> Ecto.Changeset.change(Map.put(attrs, :lookup_at, Knra.Time.now()))
+        |> Repo.update!()
+
       Audit.log(@kentrade_actor, :application, app.reference, action, note)
       updated
     end)
@@ -240,7 +268,12 @@ defmodule Knra.Screening do
     consignments = List.wrap(movement["consignments"])
     first = List.first(consignments) || %{}
     goods = Enum.flat_map(consignments, &List.wrap(&1["goods"]))
-    importers = consignments |> Enum.map(&get_in(&1, ["importer", "name"])) |> Enum.reject(&is_nil/1) |> Enum.uniq()
+
+    importers =
+      consignments
+      |> Enum.map(&get_in(&1, ["importer", "name"]))
+      |> Enum.reject(&is_nil/1)
+      |> Enum.uniq()
 
     importer =
       case importers do
@@ -252,30 +285,51 @@ defmodule Knra.Screening do
     attrs = %{
       lookup_status: "found",
       lookup_message: r.message,
-      consignment: %{"movement" => movement, "warnings" => r.warnings, "generated_at" => r.generated_at},
+      consignment: %{
+        "movement" => movement,
+        "warnings" => r.warnings,
+        "generated_at" => r.generated_at
+      },
       importer_name: importer,
-      goods_description: goods |> Enum.map(& &1["description"]) |> Enum.reject(&is_nil/1) |> Enum.join("; "),
-      hs_code: goods |> Enum.map(& &1["hsCode"]) |> Enum.reject(&is_nil/1) |> Enum.uniq() |> Enum.join(", "),
+      goods_description:
+        goods |> Enum.map(& &1["description"]) |> Enum.reject(&is_nil/1) |> Enum.join("; "),
+      hs_code:
+        goods
+        |> Enum.map(& &1["hsCode"])
+        |> Enum.reject(&is_nil/1)
+        |> Enum.uniq()
+        |> Enum.join(", "),
       ucr_number: first["ucrNumber"]
     }
 
-    {attrs, "Consignment data retrieved — HS #{attrs.hs_code}, #{importer}", Enum.join(r.warnings, " ")}
+    {attrs, "Consignment data retrieved — HS #{attrs.hs_code}, #{importer}",
+     Enum.join(r.warnings, " ")}
   end
 
   defp lookup_attrs({:ok, %KenTrade.Result{status: "FOUND"} = r}) do
-    {%{lookup_status: "not_found", lookup_message: r.message || "No movements returned"}, "KenTrade returned no movement details", r.message}
+    {%{lookup_status: "not_found", lookup_message: r.message || "No movements returned"},
+     "KenTrade returned no movement details", r.message}
   end
 
   defp lookup_attrs({:ok, %KenTrade.Result{status: "TRANSIT"} = r}) do
-    {%{lookup_status: "transit", lookup_message: r.message, consignment: %{"warnings" => r.warnings}}, "Container is transit cargo — no consignment details", r.message}
+    {%{
+       lookup_status: "transit",
+       lookup_message: r.message,
+       consignment: %{"warnings" => r.warnings}
+     }, "Container is transit cargo — no consignment details", r.message}
   end
 
   defp lookup_attrs({:ok, %KenTrade.Result{status: "NOT_FOUND"} = r}) do
-    {%{lookup_status: "not_found", lookup_message: r.message, consignment: %{"warnings" => r.warnings}}, "No KenTrade record for container", Enum.join([r.message | r.warnings], " ")}
+    {%{
+       lookup_status: "not_found",
+       lookup_message: r.message,
+       consignment: %{"warnings" => r.warnings}
+     }, "No KenTrade record for container", Enum.join([r.message | r.warnings], " ")}
   end
 
   defp lookup_attrs({:error, %KenTrade.Result{} = r}) do
-    {%{lookup_status: "error", lookup_message: "#{r.status}: #{r.message}"}, "KenTrade lookup failed", "#{r.status}: #{r.message}"}
+    {%{lookup_status: "error", lookup_message: "#{r.status}: #{r.message}"},
+     "KenTrade lookup failed", "#{r.status}: #{r.message}"}
   end
 
   ## ------------------------------------------------------------------
@@ -287,10 +341,16 @@ defmodule Knra.Screening do
   def adjudicate(scope, %Application{} = app, attrs) do
     with :ok <- Policy.authorize(scope, :adjudicate) do
       transition(app, "alarm", fn app ->
-        cs = %Adjudication{application_id: app.id, user_id: scope.user.id} |> Adjudication.changeset(attrs)
+        cs =
+          %Adjudication{application_id: app.id, user_id: scope.user.id}
+          |> Adjudication.changeset(attrs)
 
         with {:ok, adj} <- Repo.insert(cs) do
-          next = %{"release" => "report_draft", "secondary" => "secondary", "detain" => "detained"}[adj.decision]
+          next =
+            %{"release" => "report_draft", "secondary" => "secondary", "detain" => "detained"}[
+              adj.decision
+            ]
+
           app = set_stage!(app, next)
 
           action =
@@ -324,7 +384,9 @@ defmodule Knra.Screening do
           |> Inspection.changeset(attrs)
 
         with {:ok, insp} <- Repo.insert(cs) do
-          app = set_stage!(app, if(insp.outcome == "detain", do: "detained", else: "report_draft"))
+          app =
+            set_stage!(app, if(insp.outcome == "detain", do: "detained", else: "report_draft"))
+
           note = "#{insp.isotope} — max #{insp.dose_rate_usv_h} µSv/h at 1 m. #{insp.findings}"
 
           action =
@@ -364,7 +426,14 @@ defmodule Knra.Screening do
 
         with {:ok, _report} <- Repo.insert(cs) do
           app = set_stage!(app, "report_check")
-          Audit.log(scope, :application, app.reference, "Screening report submitted for verification")
+
+          Audit.log(
+            scope,
+            :application,
+            app.reference,
+            "Screening report submitted for verification"
+          )
+
           {:ok, app}
         end
       end)
@@ -384,7 +453,11 @@ defmodule Knra.Screening do
           {:error, :segregation_of_duties}
         else
           report
-          |> Ecto.Changeset.change(status: "approved", checker_id: scope.user.id, decided_at: Knra.Time.now())
+          |> Ecto.Changeset.change(
+            status: "approved",
+            checker_id: scope.user.id,
+            decided_at: Knra.Time.now()
+          )
           |> Repo.update!()
 
           app = set_stage!(app, "approved")
@@ -410,11 +483,23 @@ defmodule Knra.Screening do
             cs =
               report
               |> Report.rejection_changeset(attrs)
-              |> Ecto.Changeset.change(status: "rejected", checker_id: scope.user.id, decided_at: Knra.Time.now())
+              |> Ecto.Changeset.change(
+                status: "rejected",
+                checker_id: scope.user.id,
+                decided_at: Knra.Time.now()
+              )
 
             with {:ok, report} <- Repo.update(cs) do
               app = set_stage!(app, "report_draft")
-              Audit.log(scope, :application, app.reference, "Report rejected and returned to the checking officer", report.rejection_reason)
+
+              Audit.log(
+                scope,
+                :application,
+                app.reference,
+                "Report rejected and returned to the checking officer",
+                report.rejection_reason
+              )
+
               {:ok, app}
             end
         end
@@ -423,7 +508,12 @@ defmodule Knra.Screening do
   end
 
   defp open_report!(app) do
-    Repo.one!(from r in Report, where: r.application_id == ^app.id and r.status == "submitted", order_by: [desc: r.id], limit: 1)
+    Repo.one!(
+      from r in Report,
+        where: r.application_id == ^app.id and r.status == "submitted",
+        order_by: [desc: r.id],
+        limit: 1
+    )
   end
 
   def report_result(%Application{} = app) do
@@ -459,13 +549,29 @@ defmodule Knra.Screening do
 
       app =
         app
-        |> Ecto.Changeset.change(stage: "cleared", certificate_number: number, cleared_at: Knra.Time.now())
+        |> Ecto.Changeset.change(
+          stage: "cleared",
+          certificate_number: number,
+          cleared_at: Knra.Time.now()
+        )
         |> Repo.update!()
 
-      Audit.log("System", :application, app.reference, "Cleared — screening certificate #{number} issued")
+      Audit.log(
+        "System",
+        :application,
+        app.reference,
+        "Cleared — screening certificate #{number} issued"
+      )
+
       app
     else
-      Audit.log("System", :application, app.reference, "Awaiting payment of #{invoice.number} before clearance")
+      Audit.log(
+        "System",
+        :application,
+        app.reference,
+        "Awaiting payment of #{invoice.number} before clearance"
+      )
+
       app
     end
   end
@@ -515,12 +621,23 @@ defmodule Knra.Screening do
 
   @doc "Human message for an error returned by this context."
   def error_message(:unauthorized), do: "Your role is not permitted to perform this action."
-  def error_message(:segregation_of_duties), do: "Segregation of duties: you drafted this report, so you cannot verify it."
-  def error_message({:invalid_stage, stage}), do: "This application has moved on (now: #{Application.stage_label(stage)}). Refresh and try again."
-  def error_message(:invalid_container_number), do: "Container number must be 4 letters followed by 7 digits (ISO 6346)."
+
+  def error_message(:segregation_of_duties),
+    do: "Segregation of duties: you drafted this report, so you cannot verify it."
+
+  def error_message({:invalid_stage, stage}),
+    do:
+      "This application has moved on (now: #{Application.stage_label(stage)}). Refresh and try again."
+
+  def error_message(:invalid_container_number),
+    do: "Container number must be 4 letters followed by 7 digits (ISO 6346)."
+
   def error_message(:unknown_lane), do: "Unknown RPM lane."
   def error_message(:lane_out_of_service), do: "That RPM lane is out of service."
-  def error_message(:already_in_screening), do: "This container already has an open screening application."
+
+  def error_message(:already_in_screening),
+    do: "This container already has an open screening application."
+
   def error_message(:reason_required), do: "A reason is required."
   def error_message(other), do: "Action failed: #{inspect(other)}"
 end

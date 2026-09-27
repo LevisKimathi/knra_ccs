@@ -26,7 +26,14 @@ defmodule Knra.Devices do
       Repo.transaction(fn ->
         case Repo.insert(Lane.changeset(%Lane{}, attrs)) do
           {:ok, lane} ->
-            Audit.log(scope, :device, lane.device_code, "Device registered on #{lane.name}", lane.serial_number)
+            Audit.log(
+              scope,
+              :device,
+              lane.device_code,
+              "Device registered on #{lane.name}",
+              lane.serial_number
+            )
+
             lane
 
           {:error, cs} ->
@@ -42,7 +49,14 @@ defmodule Knra.Devices do
       Repo.transaction(fn ->
         case Repo.update(Lane.changeset(lane, attrs)) do
           {:ok, updated} ->
-            Audit.log(scope, :device, updated.device_code, "Device details updated", changes_note(lane, updated))
+            Audit.log(
+              scope,
+              :device,
+              updated.device_code,
+              "Device details updated",
+              changes_note(lane, updated)
+            )
+
             updated
 
           {:error, cs} ->
@@ -60,7 +74,11 @@ defmodule Knra.Devices do
     with :ok <- Policy.authorize(scope, :manage_devices),
          :ok <- require_reason(reason) do
       Repo.transaction(fn ->
-        updated = lane |> Ecto.Changeset.change(in_service: false, status_reason: reason) |> Repo.update!()
+        updated =
+          lane
+          |> Ecto.Changeset.change(in_service: false, status_reason: reason)
+          |> Repo.update!()
+
         Audit.log(scope, :device, lane.device_code, "Device marked out of service", reason)
         updated
       end)
@@ -75,7 +93,9 @@ defmodule Knra.Devices do
   def return_to_service(scope, %Lane{} = lane, note \\ nil) do
     with :ok <- Policy.authorize(scope, :manage_devices) do
       Repo.transaction(fn ->
-        updated = lane |> Ecto.Changeset.change(in_service: true, status_reason: nil) |> Repo.update!()
+        updated =
+          lane |> Ecto.Changeset.change(in_service: true, status_reason: nil) |> Repo.update!()
+
         Audit.log(scope, :device, lane.device_code, "Device returned to service", note)
         updated
       end)

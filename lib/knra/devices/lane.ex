@@ -17,14 +17,23 @@ defmodule Knra.Devices.Lane do
 
   def changeset(lane, attrs) do
     lane
-    |> cast(attrs, [:name, :device_code, :serial_number, :detector_type, :terminal, :calibration_due_on])
+    |> cast(attrs, [
+      :name,
+      :device_code,
+      :serial_number,
+      :detector_type,
+      :terminal,
+      :calibration_due_on
+    ])
     |> validate_required([:name, :device_code, :serial_number, :detector_type])
     |> unique_constraint(:device_code)
     |> unique_constraint(:name)
   end
 
   def calibration_overdue?(%__MODULE__{calibration_due_on: nil}), do: false
-  def calibration_overdue?(%__MODULE__{calibration_due_on: d}), do: Date.compare(d, Knra.Time.today()) == :lt
+
+  def calibration_overdue?(%__MODULE__{calibration_due_on: d}),
+    do: Date.compare(d, Knra.Time.today()) == :lt
 
   def calibration_due_soon?(%__MODULE__{calibration_due_on: nil}), do: false
 

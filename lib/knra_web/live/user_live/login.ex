@@ -6,7 +6,7 @@ defmodule KnraWeb.UserLive.Login do
   @impl true
   def render(assigns) do
     ~H"""
-    <Layouts.app flash={@flash} current_scope={@current_scope}>
+    <Layouts.auth flash={@flash} current_scope={@current_scope}>
       <div class="mx-auto max-w-sm space-y-4">
         <div class="text-center">
           <.header>
@@ -15,11 +15,8 @@ defmodule KnraWeb.UserLive.Login do
               <%= if @current_scope do %>
                 You need to reauthenticate to perform sensitive actions on your account.
               <% else %>
-                Don't have an account? <.link
-                  navigate={~p"/users/register"}
-                  class="font-semibold text-brand hover:underline"
-                  phx-no-format
-                >Sign up</.link> for an account now.
+                KNRA staff only. Accounts are created by a supervisor — first-time users
+                should use the emailed link, then set a password in Settings.
               <% end %>
             </:subtitle>
           </.header>
@@ -91,7 +88,7 @@ defmodule KnraWeb.UserLive.Login do
           </.button>
         </.form>
       </div>
-    </Layouts.app>
+    </Layouts.auth>
     """
   end
 

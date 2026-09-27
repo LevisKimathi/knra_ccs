@@ -9,7 +9,8 @@ defmodule Knra.Time do
 
   def now, do: DateTime.utc_now(:second)
 
-  def to_local(%DateTime{} = dt), do: DateTime.add(dt, @offset_seconds, :second) |> DateTime.to_naive()
+  def to_local(%DateTime{} = dt),
+    do: DateTime.add(dt, @offset_seconds, :second) |> DateTime.to_naive()
 
   def today, do: now() |> to_local() |> NaiveDateTime.to_date()
 

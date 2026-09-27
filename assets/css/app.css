@@ -21,52 +21,18 @@
   curl -sLO https://github.com/saadeghi/daisyui/releases/latest/download/daisyui-theme.js
   We ship with two themes, a light one inspired on Phoenix colors and a dark one inspired
   on Elixir colors. Build your own at: https://daisyui.com/theme-generator/ */
-@plugin "../vendor/daisyui-theme" {
-  name: "dark";
-  default: false;
-  prefersdark: true;
-  color-scheme: "dark";
-  --color-base-100: oklch(30.33% 0.016 252.42);
-  --color-base-200: oklch(25.26% 0.014 253.1);
-  --color-base-300: oklch(20.15% 0.012 254.09);
-  --color-base-content: oklch(97.807% 0.029 256.847);
-  --color-primary: oklch(58% 0.233 277.117);
-  --color-primary-content: oklch(96% 0.018 272.314);
-  --color-secondary: oklch(58% 0.233 277.117);
-  --color-secondary-content: oklch(96% 0.018 272.314);
-  --color-accent: oklch(60% 0.25 292.717);
-  --color-accent-content: oklch(96% 0.016 293.756);
-  --color-neutral: oklch(37% 0.044 257.287);
-  --color-neutral-content: oklch(98% 0.003 247.858);
-  --color-info: oklch(58% 0.158 241.966);
-  --color-info-content: oklch(97% 0.013 236.62);
-  --color-success: oklch(60% 0.118 184.704);
-  --color-success-content: oklch(98% 0.014 180.72);
-  --color-warning: oklch(66% 0.179 58.318);
-  --color-warning-content: oklch(98% 0.022 95.277);
-  --color-error: oklch(58% 0.253 17.585);
-  --color-error-content: oklch(96% 0.015 12.422);
-  --radius-selector: 0.25rem;
-  --radius-field: 0.25rem;
-  --radius-box: 0.5rem;
-  --size-selector: 0.21875rem;
-  --size-field: 0.21875rem;
-  --border: 1.5px;
-  --depth: 1;
-  --noise: 0;
-}
 
 @plugin "../vendor/daisyui-theme" {
   name: "light";
   default: true;
   prefersdark: false;
   color-scheme: "light";
-  --color-base-100: oklch(98% 0 0);
+  --color-base-100: #ffffff;
   --color-base-200: oklch(96% 0.001 286.375);
   --color-base-300: oklch(92% 0.004 286.32);
   --color-base-content: oklch(21% 0.006 285.885);
-  --color-primary: oklch(70% 0.213 47.604);
-  --color-primary-content: oklch(98% 0.016 73.684);
+  --color-primary: #27b0f4;
+  --color-primary-content: #ffffff;
   --color-secondary: oklch(55% 0.027 264.364);
   --color-secondary-content: oklch(98% 0.002 247.839);
   --color-accent: oklch(0% 0 0);
@@ -103,3 +69,40 @@
 [data-phx-session], [data-phx-teleported-src] { display: contents }
 
 /* This file is for your main application CSS */
+
+/* ---- KNRA CCS design tokens (from the reviewed UI demo) ---- */
+@theme {
+  --font-sans: "Public Sans", Helvetica, Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+
+  --color-brand: #27b0f4;
+  --color-brand-dark: #0b6a9b;
+  --color-brand-soft: #e8f6fe;
+  --color-ink: #16202a;
+  --color-muted: #5b6874;
+  --color-subtle: #8a97a3;
+  --color-line: #dfe3e8;
+  --color-line-soft: #eef1f4;
+  --color-canvas: #eef1f4;
+  --color-panel: #f7f9fa;
+  --color-ok: #0f6b45;
+  --color-ok-soft: #e7f2ec;
+  --color-bad: #b3261e;
+  --color-bad-soft: #fdecea;
+  --color-warn: #a86400;
+  --color-warn-soft: #fdf3e2;
+}
+
+html, body { background: var(--color-canvas); color: var(--color-ink); -webkit-font-smoothing: antialiased; }
+
+@media print {
+  .noprint { display: none !important; }
+  html, body { background: #fff !important; }
+  .print-sheet { border: 0 !important; padding: 0 !important; box-shadow: none !important; }
+  @page { margin: 14mm; }
+}
+
+/* Grid tables: rows stack on phones, use the column template (--cols) from md up */
+@media (min-width: 48rem) {
+  [style*="--cols"] { grid-template-columns: var(--cols); }
+}

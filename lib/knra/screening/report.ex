@@ -23,7 +23,10 @@ defmodule Knra.Screening.Report do
     |> cast(attrs, [:narrative])
     |> update_change(:narrative, &String.trim/1)
     |> validate_required([:narrative], message: "is required")
-    |> validate_length(:narrative, min: 10, message: "must describe the screening (at least 10 characters)")
+    |> validate_length(:narrative,
+      min: 10,
+      message: "must describe the screening (at least 10 characters)"
+    )
   end
 
   def rejection_changeset(report, attrs) do

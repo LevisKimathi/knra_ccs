@@ -22,8 +22,10 @@ defmodule KnraWeb.UserSessionControllerTest do
 
       # Now do a logged in request and assert on the menu
       conn = get(conn, ~p"/")
+      assert redirected_to(conn) == ~p"/cas/lanes"
+      conn = get(conn, ~p"/cas/lanes")
       response = html_response(conn, 200)
-      assert response =~ user.email
+      assert response =~ user.name
       assert response =~ ~p"/users/settings"
       assert response =~ ~p"/users/log-out"
     end
@@ -86,8 +88,10 @@ defmodule KnraWeb.UserSessionControllerTest do
 
       # Now do a logged in request and assert on the menu
       conn = get(conn, ~p"/")
+      assert redirected_to(conn) == ~p"/cas/lanes"
+      conn = get(conn, ~p"/cas/lanes")
       response = html_response(conn, 200)
-      assert response =~ user.email
+      assert response =~ user.name
       assert response =~ ~p"/users/settings"
       assert response =~ ~p"/users/log-out"
     end
@@ -110,8 +114,10 @@ defmodule KnraWeb.UserSessionControllerTest do
 
       # Now do a logged in request and assert on the menu
       conn = get(conn, ~p"/")
+      assert redirected_to(conn) == ~p"/cas/lanes"
+      conn = get(conn, ~p"/cas/lanes")
       response = html_response(conn, 200)
-      assert response =~ user.email
+      assert response =~ user.name
       assert response =~ ~p"/users/settings"
       assert response =~ ~p"/users/log-out"
     end

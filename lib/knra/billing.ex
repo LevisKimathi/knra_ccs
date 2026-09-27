@@ -28,7 +28,8 @@ defmodule Knra.Billing do
     )
   end
 
-  def get_fee_schedule!(id), do: FeeSchedule |> Repo.get!(id) |> Repo.preload([:items, :created_by, :approved_by])
+  def get_fee_schedule!(id),
+    do: FeeSchedule |> Repo.get!(id) |> Repo.preload([:items, :created_by, :approved_by])
 
   @doc "The approved schedule in force on `date` (Nairobi calendar date)."
   def schedule_in_force(date \\ Knra.Time.today()) do
@@ -52,14 +53,21 @@ defmodule Knra.Billing do
 
         s ->
           Enum.map(s.items, fn i ->
-            %FeeItem{code: i.code, description: i.description, amount_usd: i.amount_usd, amount_kes: i.amount_kes, position: i.position}
+            %FeeItem{
+              code: i.code,
+              description: i.description,
+              amount_usd: i.amount_usd,
+              amount_kes: i.amount_kes,
+              position: i.position
+            }
           end)
       end
 
     %FeeSchedule{items: items, effective_from: Date.add(Knra.Time.today(), 1)}
   end
 
-  def change_proposal(%FeeSchedule{} = s, attrs \\ %{}), do: FeeSchedule.proposal_changeset(s, attrs)
+  def change_proposal(%FeeSchedule{} = s, attrs \\ %{}),
+    do: FeeSchedule.proposal_changeset(s, attrs)
 
   @doc "Proposes a new fee schedule version. It takes effect only once another supervisor approves it."
   def propose_fee_schedule(scope, attrs) do
@@ -72,8 +80,13 @@ defmodule Knra.Billing do
         |> Repo.insert()
         |> case do
           {:ok, s} ->
-            Audit.log(scope, :fee_schedule, "v#{version}", "Fee schedule v#{version} proposed",
-              "Effective #{Knra.Time.format_date(s.effective_from)}. #{s.note}")
+            Audit.log(
+              scope,
+              :fee_schedule,
+              "v#{version}",
+              "Fee schedule v#{version} proposed",
+              "Effective #{Knra.Time.format_date(s.effective_from)}. #{s.note}"
+            )
 
             s
 
@@ -93,11 +106,20 @@ defmodule Knra.Billing do
       Repo.transaction(fn ->
         updated =
           s
-          |> Ecto.Changeset.change(status: "approved", approved_by_id: scope.user.id, approved_at: Knra.Time.now())
+          |> Ecto.Changeset.change(
+            status: "approved",
+            approved_by_id: scope.user.id,
+            approved_at: Knra.Time.now()
+          )
           |> Repo.update!()
 
-        Audit.log(scope, :fee_schedule, "v#{s.version}", "Fee schedule v#{s.version} approved",
-          "Effective #{Knra.Time.format_date(s.effective_from)}")
+        Audit.log(
+          scope,
+          :fee_schedule,
+          "v#{s.version}",
+          "Fee schedule v#{s.version} approved",
+          "Effective #{Knra.Time.format_date(s.effective_from)}"
+        )
 
         updated
       end)
@@ -114,10 +136,22 @@ defmodule Knra.Billing do
       Repo.transaction(fn ->
         updated =
           s
-          |> Ecto.Changeset.change(status: "rejected", approved_by_id: scope.user.id, approved_at: Knra.Time.now(), rejection_reason: reason)
+          |> Ecto.Changeset.change(
+            status: "rejected",
+            approved_by_id: scope.user.id,
+            approved_at: Knra.Time.now(),
+            rejection_reason: reason
+          )
           |> Repo.update!()
 
-        Audit.log(scope, :fee_schedule, "v#{s.version}", "Fee schedule v#{s.version} rejected", reason)
+        Audit.log(
+          scope,
+          :fee_schedule,
+          "v#{s.version}",
+          "Fee schedule v#{s.version} rejected",
+          reason
+        )
+
         updated
       end)
     end
@@ -126,7 +160,9 @@ defmodule Knra.Billing do
   defp pending(%FeeSchedule{status: "pending_approval"}), do: :ok
   defp pending(_), do: {:error, :not_pending}
 
-  defp not_own(scope, %FeeSchedule{created_by_id: id}) when id == scope.user.id, do: {:error, :segregation_of_duties}
+  defp not_own(scope, %FeeSchedule{created_by_id: id}) when id == scope.user.id,
+    do: {:error, :segregation_of_duties}
+
   defp not_own(_, _), do: :ok
 
   defp not_backdated(%FeeSchedule{effective_from: d}) do
@@ -141,7 +177,10 @@ defmodule Knra.Billing do
   def raise_invoice!(application, scanned_at) do
     date = scanned_at |> Knra.Time.to_local() |> NaiveDateTime.to_date()
     schedule = schedule_in_force(date) || raise "no approved fee schedule in force on #{date}"
-    item = fee_item(schedule, "screening") || raise "fee schedule v#{schedule.version} has no screening fee"
+
+    item =
+      fee_item(schedule, "screening") ||
+        raise "fee schedule v#{schedule.version} has no screening fee"
 
     number = next_number("invoice_number_seq", "INV")
 
@@ -156,14 +195,20 @@ defmodule Knra.Billing do
         status: if(Decimal.equal?(item.amount_kes, 0), do: "paid", else: "pending")
       })
 
-    Audit.log("System", :application, application.reference,
-      "Invoice #{number} issued — USD #{fmt(item.amount_usd)} / KES #{fmt(item.amount_kes)} (pending)")
+    Audit.log(
+      "System",
+      :application,
+      application.reference,
+      "Invoice #{number} issued — USD #{fmt(item.amount_usd)} / KES #{fmt(item.amount_kes)} (pending)"
+    )
 
     invoice
   end
 
   def get_invoice_by_number(number) do
-    Invoice |> Repo.get_by(number: normalise_ref(number)) |> Repo.preload([:payments, :application])
+    Invoice
+    |> Repo.get_by(number: normalise_ref(number))
+    |> Repo.preload([:payments, :application])
   end
 
   ## ------------------------------------------------------------------
@@ -183,7 +228,10 @@ defmodule Knra.Billing do
       reference: trans_id,
       account_reference: account_ref,
       amount_kes: payload["TransAmount"],
-      payer: [payload["FirstName"], mask_msisdn(payload["MSISDN"])] |> Enum.reject(&(&1 in [nil, ""])) |> Enum.join(" · "),
+      payer:
+        [payload["FirstName"], mask_msisdn(payload["MSISDN"])]
+        |> Enum.reject(&(&1 in [nil, ""]))
+        |> Enum.join(" · "),
       received_at: parse_mpesa_time(payload["TransTime"]),
       raw: payload
     }
@@ -198,7 +246,11 @@ defmodule Knra.Billing do
           invoice = lock_invoice_by_number(account_ref)
 
           cs =
-            %Payment{method: "mpesa", status: if(invoice, do: "matched", else: "unmatched"), invoice_id: invoice && invoice.id}
+            %Payment{
+              method: "mpesa",
+              status: if(invoice, do: "matched", else: "unmatched"),
+              invoice_id: invoice && invoice.id
+            }
             |> Payment.mpesa_changeset(attrs)
 
           case Repo.insert(cs) do
@@ -206,8 +258,13 @@ defmodule Knra.Billing do
               if invoice do
                 apply_payment!(invoice, payment, @mpesa_actor <> " · " <> trans_id)
               else
-                Audit.log(@mpesa_actor, :payment, trans_id, "Unmatched M-Pesa payment received",
-                  "Account reference #{account_ref || "—"}, KES #{fmt(payment.amount_kes)}")
+                Audit.log(
+                  @mpesa_actor,
+                  :payment,
+                  trans_id,
+                  "Unmatched M-Pesa payment received",
+                  "Account reference #{account_ref || "—"}, KES #{fmt(payment.amount_kes)}"
+                )
               end
 
               payment
@@ -228,7 +285,14 @@ defmodule Knra.Billing do
       Repo.transaction(fn ->
         invoice = Repo.get!(Invoice, invoice.id, lock: "FOR UPDATE")
 
-        %Payment{method: "bank", status: "matched", invoice_id: invoice.id, recorded_by_id: scope.user.id, received_at: Knra.Time.now(), account_reference: invoice.number}
+        %Payment{
+          method: "bank",
+          status: "matched",
+          invoice_id: invoice.id,
+          recorded_by_id: scope.user.id,
+          received_at: Knra.Time.now(),
+          account_reference: invoice.number
+        }
         |> Payment.bank_changeset(attrs)
         |> Repo.insert()
         |> case do
@@ -248,7 +312,8 @@ defmodule Knra.Billing do
     Repo.all(from p in Payment, where: p.status == "unmatched", order_by: [desc: p.received_at])
   end
 
-  def count_unmatched_payments, do: Repo.aggregate(from(p in Payment, where: p.status == "unmatched"), :count)
+  def count_unmatched_payments,
+    do: Repo.aggregate(from(p in Payment, where: p.status == "unmatched"), :count)
 
   @doc "Supervisor applies an unmatched payment to an invoice."
   def reconcile_payment(scope, %Payment{status: "unmatched"} = payment, invoice_number) do
@@ -259,8 +324,22 @@ defmodule Knra.Billing do
             Repo.rollback(:invoice_not_found)
 
           invoice ->
-            payment = payment |> Ecto.Changeset.change(status: "matched", invoice_id: invoice.id, recorded_by_id: scope.user.id) |> Repo.update!()
-            Audit.log(scope, :payment, payment.reference, "Payment reconciled to #{invoice.number}")
+            payment =
+              payment
+              |> Ecto.Changeset.change(
+                status: "matched",
+                invoice_id: invoice.id,
+                recorded_by_id: scope.user.id
+              )
+              |> Repo.update!()
+
+            Audit.log(
+              scope,
+              :payment,
+              payment.reference,
+              "Payment reconciled to #{invoice.number}"
+            )
+
             apply_payment!(invoice, payment, scope)
             payment
         end
@@ -277,9 +356,14 @@ defmodule Knra.Billing do
     invoice = Repo.preload(invoice, [:application, :payments], force: true)
     received = Invoice.amount_received(invoice)
     app_ref = invoice.application.reference
-    Audit.log(actor, :application, app_ref,
+
+    Audit.log(
+      actor,
+      :application,
+      app_ref,
       "#{Payment.method_label(payment.method)} payment received — KES #{fmt(payment.amount_kes)}",
-      "Reference #{payment.reference} against #{invoice.number}")
+      "Reference #{payment.reference} against #{invoice.number}"
+    )
 
     if invoice.status == "pending" and Decimal.compare(received, invoice.amount_kes) != :lt do
       invoice |> Ecto.Changeset.change(status: "paid", paid_at: Knra.Time.now()) |> Repo.update!()
@@ -319,12 +403,18 @@ defmodule Knra.Billing do
   def fmt(nil), do: "—"
 
   def fmt(%Decimal{} = d) do
-    [int, frac] = d |> Decimal.round(2) |> Decimal.to_string(:normal) |> String.split(".") |> then(fn
-      [i] -> [i, "00"]
-      [i, f] -> [i, String.pad_trailing(f, 2, "0")]
-    end)
+    [int, frac] =
+      d
+      |> Decimal.round(2)
+      |> Decimal.to_string(:normal)
+      |> String.split(".")
+      |> then(fn
+        [i] -> [i, "00"]
+        [i, f] -> [i, String.pad_trailing(f, 2, "0")]
+      end)
 
-    {sign, int} = if String.starts_with?(int, "-"), do: {"-", String.slice(int, 1..-1//1)}, else: {"", int}
+    {sign, int} =
+      if String.starts_with?(int, "-"), do: {"-", String.slice(int, 1..-1//1)}, else: {"", int}
 
     grouped =
       int
@@ -346,8 +436,18 @@ defmodule Knra.Billing do
     if String.length(m) > 6, do: String.slice(m, 0, 6) <> "***" <> String.slice(m, -3, 3), else: m
   end
 
-  defp parse_mpesa_time(<<y::binary-4, mo::binary-2, d::binary-2, h::binary-2, mi::binary-2, s::binary-2>>) do
-    with {:ok, naive} <- NaiveDateTime.new(String.to_integer(y), String.to_integer(mo), String.to_integer(d), String.to_integer(h), String.to_integer(mi), String.to_integer(s)) do
+  defp parse_mpesa_time(
+         <<y::binary-4, mo::binary-2, d::binary-2, h::binary-2, mi::binary-2, s::binary-2>>
+       ) do
+    with {:ok, naive} <-
+           NaiveDateTime.new(
+             String.to_integer(y),
+             String.to_integer(mo),
+             String.to_integer(d),
+             String.to_integer(h),
+             String.to_integer(mi),
+             String.to_integer(s)
+           ) do
       naive |> DateTime.from_naive!("Etc/UTC") |> DateTime.add(-3 * 3600, :second)
     else
       _ -> Knra.Time.now()

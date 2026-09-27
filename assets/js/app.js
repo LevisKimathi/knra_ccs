@@ -81,3 +81,8 @@ if (process.env.NODE_ENV === "development") {
   })
 }
 
+
+// Print buttons on invoice / certificate pages (<button data-print>)
+document.addEventListener("click", e => {
+  if (e.target.closest("[data-print]")) { e.preventDefault(); window.print() }
+})

@@ -47,12 +47,21 @@ defmodule Knra.Integrations do
       |> Map.new()
 
     last = Repo.one(from l in Log, where: l.system == ^system, order_by: [desc: l.id], limit: 1)
-    last_ok = Repo.one(from l in Log, where: l.system == ^system and l.outcome in ["found", "transit", "not_found"], order_by: [desc: l.id], limit: 1)
+
+    last_ok =
+      Repo.one(
+        from l in Log,
+          where: l.system == ^system and l.outcome in ["found", "transit", "not_found"],
+          order_by: [desc: l.id],
+          limit: 1
+      )
 
     %{
       stats: stats,
       total: stats |> Map.values() |> Enum.sum(),
-      failures: Map.get(stats, "error", 0) + Map.get(stats, "unauthorized", 0) + Map.get(stats, "invalid_request", 0),
+      failures:
+        Map.get(stats, "error", 0) + Map.get(stats, "unauthorized", 0) +
+          Map.get(stats, "invalid_request", 0),
       last: last,
       last_ok: last_ok,
       healthy?: is_nil(last) or last.outcome in ["found", "transit", "not_found"]

@@ -23,13 +23,16 @@ defmodule Knra.Simulator do
   def rpm_pass(scope, container_number, lane_code, alarm?) do
     with :ok <- check(scope),
          {:ok, lane_code} <- pick_lane(lane_code) do
-      gamma = if alarm?, do: @gamma_threshold + 20 + :rand.uniform(90), else: 30 + :rand.uniform(15)
+      gamma =
+        if alarm?, do: @gamma_threshold + 20 + :rand.uniform(90), else: 30 + :rand.uniform(15)
+
       neutron = if alarm?, do: 3, else: 1 + :rand.uniform(2)
       now = Knra.Time.now()
       local = Knra.Time.to_local(now)
 
       Screening.ingest_occupancy(%{
-        occupancy_ref: "OCC-#{Calendar.strftime(local, "%y%m%d%H%M%S")}-#{:rand.uniform(899) + 100}",
+        occupancy_ref:
+          "OCC-#{Calendar.strftime(local, "%y%m%d%H%M%S")}-#{:rand.uniform(899) + 100}",
         container_number: container_number,
         lane_code: lane_code,
         scanned_at: now,
@@ -47,7 +50,9 @@ defmodule Knra.Simulator do
 
       Billing.record_mpesa_confirmation(%{
         "TransactionType" => "Pay Bill",
-        "TransID" => "S" <> (:crypto.strong_rand_bytes(6) |> Base.encode32(padding: false) |> binary_part(0, 9)),
+        "TransID" =>
+          "S" <>
+            (:crypto.strong_rand_bytes(6) |> Base.encode32(padding: false) |> binary_part(0, 9)),
         "TransTime" => Calendar.strftime(local, "%Y%m%d%H%M%S"),
         "TransAmount" => to_string(amount_kes),
         "BusinessShortCode" => "222222",
@@ -77,6 +82,7 @@ defmodule Knra.Simulator do
 
   @doc "Sample container numbers known to the KenTrade mock."
   def sample_containers do
-    Map.keys(Knra.Integrations.KenTrade.MockPlug.catalogue()) ++ Knra.Integrations.KenTrade.MockPlug.transit_containers() ++ ["ABCU1234560"]
+    Map.keys(Knra.Integrations.KenTrade.MockPlug.catalogue()) ++
+      Knra.Integrations.KenTrade.MockPlug.transit_containers() ++ ["ABCU1234560"]
   end
 end
