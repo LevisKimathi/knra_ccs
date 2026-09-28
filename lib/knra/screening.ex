@@ -315,7 +315,11 @@ defmodule Knra.Screening do
       },
       importer_name: importer,
       goods_description:
-        goods |> Enum.map(& &1["description"]) |> Enum.reject(&is_nil/1) |> Enum.join("; "),
+        goods
+        |> Enum.map(& &1["description"])
+        |> Enum.reject(&is_nil/1)
+        |> Enum.uniq()
+        |> Enum.join("; "),
       hs_code:
         goods
         |> Enum.map(& &1["hsCode"])

@@ -257,7 +257,13 @@ defmodule KnraWeb.ApplicationLive.Show do
         cols={3}
         rows={[
           {"Container",
-           "#{Application.display_container(@app.container_number)} · #{@container["size"]}' #{@container["type"]}"},
+           [
+             Application.display_container(@app.container_number),
+             @container["size"] &&
+               "#{@container["size"]}'#{@container["type"] && " " <> @container["type"]}"
+           ]
+           |> Enum.reject(&is_nil/1)
+           |> Enum.join(" · ")},
           {"Seal", @container["sealNumber"]},
           {"Gross weight",
            @container["grossWeightKg"] &&
