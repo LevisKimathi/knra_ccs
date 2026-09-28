@@ -1,0 +1,35 @@
+# Install to /etc/systemd/system/knra.service, then:
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now knra
+#
+# /srv/knra/current is a symlink to the most recently deployed release,
+# swapped atomically by deploy/deploy.sh on each deploy.
+
+[Unit]
+Description=KNRA Containerised Cargo Screening System
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=exec
+#User=knra
+#Group=knra
+WorkingDirectory=/srv/knra/current
+EnvironmentFile=/etc/knra/knra.env
+Environment=RELEASE_TMP=/tmp
+ExecStart=/srv/knra/current/bin/server
+ExecStop=/srv/knra/current/bin/knra stop
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=65535
+
+# The release itself is read-only; it only needs its own private /tmp
+# (for RELEASE_TMP, crash dumps, etc) and the uploads directory, where field
+# inspection photos are written.
+ProtectSystem=strict
+ReadWritePaths=/srv/knra/uploads
+PrivateTmp=true
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

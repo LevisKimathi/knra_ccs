@@ -7,6 +7,8 @@ defmodule Knra.Notifications do
   toasts. Detentions and device faults are also emailed to supervisors.
   """
 
+  require Logger
+
   alias Knra.Accounts
   alias Knra.Accounts.UserNotifier
   alias Knra.Screening.Application
@@ -72,9 +74,17 @@ defmodule Knra.Notifications do
     email_supervisors("RPM out of service: #{lane.name}", msg)
   end
 
+  # Alert emails are best effort: a mail outage must never undo or break the
+  # detention / device-fault action that triggered them.
   defp email_supervisors(subject, body) do
     for u <- Accounts.list_active_users_by_role("supervisor") do
-      UserNotifier.deliver(u.email, subject, body)
+      try do
+        UserNotifier.deliver(u.email, subject, body)
+      rescue
+        e -> Logger.error("Alert email to #{u.email} failed: #{Exception.message(e)}")
+      catch
+        :exit, reason -> Logger.error("Alert email to #{u.email} failed: #{inspect(reason)}")
+      end
     end
 
     :ok

@@ -43,6 +43,9 @@ defmodule KnraWeb.Router do
     end
   end
 
+  # Health check used by deploy/deploy.sh (no session, no auth, no SSL redirect)
+  get "/health", KnraWeb.HealthController, :show
+
   ## Machine API for KenTrade (From + SHA-256 Authorization header, no session)
 
   scope "/api/kentrade", KnraWeb.Api do

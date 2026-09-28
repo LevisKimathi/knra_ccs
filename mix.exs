@@ -11,7 +11,11 @@ defmodule Knra.MixProject do
       aliases: aliases(),
       deps: deps(),
       compilers: [:phoenix_live_view] ++ Mix.compilers(),
-      listeners: [Phoenix.CodeReloader]
+      listeners: [Phoenix.CodeReloader],
+      releases: [
+        # deploy/deploy.sh unpacks the tarball into /srv/knra/releases/<timestamp>
+        knra: [include_executables_for: [:unix], steps: [:assemble, :tar]]
+      ]
     ]
   end
 
@@ -60,6 +64,7 @@ defmodule Knra.MixProject do
        compile: false,
        depth: 1},
       {:swoosh, "~> 1.16"},
+      {:gen_smtp, "~> 1.2"},
       {:req, "~> 0.5"},
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},

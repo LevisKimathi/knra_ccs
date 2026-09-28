@@ -61,7 +61,7 @@ if config_env() != :test do
     config :knra, simulators_enabled: v in ~w(true 1 yes)
   end
 
-  if dir = System.get_env("UPLOADS_DIR") do
+  if dir = System.get_env("UPLOADS_DIRECTORY") do
     config :knra, uploads_dir: dir
   end
 end
@@ -142,6 +142,39 @@ if config_env() == :prod do
   #       force_ssl: [hsts: true]
   #
   # Check `Plug.SSL` for all available options in `force_ssl`.
+
+  # ---- Email (login links for staff, detention / device-fault alerts)
+  # Staff log in with emailed links, so production needs a real mail server.
+  if smtp_host = System.get_env("SMTP_HOST") do
+    config :knra, Knra.Mailer,
+      adapter: Swoosh.Adapters.SMTP,
+      relay: smtp_host,
+      port: String.to_integer(System.get_env("SMTP_PORT", "587")),
+      username: System.get_env("SMTP_USERNAME"),
+      password: System.get_env("SMTP_PASSWORD"),
+      tls: :always,
+      auth: if(System.get_env("SMTP_USERNAME"), do: :always, else: :never),
+      tls_options: [
+        verify: :verify_peer,
+        cacerts: :public_key.cacerts_get(),
+        server_name_indication: String.to_charlist(smtp_host),
+        depth: 99
+      ]
+  else
+    # No mail server configured: write emails (including login links) to the
+    # service log instead of failing. Read them with `journalctl -u knra`.
+    config :knra, Knra.Mailer,
+      adapter: Swoosh.Adapters.Logger,
+      level: :warning,
+      log_full_email: true
+  end
+
+  if from = System.get_env("MAIL_FROM") do
+    config :knra, mail_from: {"KNRA Cargo Screening", from}
+  end
+
+  # Behind a reverse proxy the public URL (used in emailed links) is https on 443
+  # while the app itself listens on PORT on localhost.
 
   # ## Configuring the mailer
   #

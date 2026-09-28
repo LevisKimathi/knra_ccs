@@ -122,7 +122,7 @@ Other settings:
 | Variable / config | Purpose |
 |---|---|
 | `SIMULATORS_ENABLED` | Enables the RPM & M-Pesa simulator (on in dev, off otherwise) |
-| `UPLOADS_DIR` | Where inspection photos are stored (default `./uploads`) |
+| `UPLOADS_DIRECTORY` | Where inspection photos are stored (default `./uploads`) |
 | `:alarm_sla_minutes` | Alarms waiting longer are flagged in the queue (default 15) |
 
 In dev the mock KenTrade knows the demo containers (e.g. `OOLU4471228`, `MSKU7741293`),
