@@ -19,7 +19,7 @@ defmodule KnraWeb.AlarmQueueLive do
       nav_counts={@nav_counts}
       active="alarms"
     >
-      <.page_header title="Alarm queue">
+      <.page_header title="Alarm Queue">
         <:subtitle>
           Every alarm must be adjudicated with a classification and a recorded reason. Unresolved
           alarms block the container at the divert bay. Alarms waiting longer than {@sla} minutes are flagged.
@@ -79,7 +79,7 @@ defmodule KnraWeb.AlarmQueueLive do
 
     {:ok,
      socket
-     |> assign(page_title: "Alarm queue", sla: Screening.alarm_sla_minutes())
+     |> assign(page_title: "Alarm Queue", sla: Screening.alarm_sla_minutes())
      |> load()}
   end
 

@@ -9,7 +9,7 @@ defmodule KnraWeb.Admin.ApiClientsLive do
 
   alias Knra.ApiClients
 
-  @cols "1fr 150px 170px 150px 110px 240px"
+  @cols "1fr 130px 150px 190px 100px 300px"
 
   @impl true
   def render(assigns) do
@@ -22,7 +22,7 @@ defmodule KnraWeb.Admin.ApiClientsLive do
       nav_counts={@nav_counts}
       active="api_clients"
     >
-      <.page_header title="API clients">
+      <.page_header title="API Clients">
         <:subtitle>
           Organisations that may query container screening status via <span class="font-mono">POST {KnraWeb.Endpoint.path("/api/container-status")}</span>.
           Each has its own credentials and can be revoked on its own.
@@ -43,21 +43,19 @@ defmodule KnraWeb.Admin.ApiClientsLive do
           Credentials for {@issued.name} — copy them now, the password is not shown again
         </div>
         <dl class="grid gap-x-6 gap-y-1 font-mono text-[13px] sm:grid-cols-[140px_1fr]">
-          <dt class="text-muted">From (client code)</dt>
-          <dd>{@issued.client_code}</dd>
           <dt class="text-muted">Username</dt>
           <dd>{@issued.username}</dd>
           <dt class="text-muted">Password</dt>
           <dd class="break-all">{@issued.password}</dd>
         </dl>
         <p class="mt-2 text-xs text-muted">
-          The client sends <span class="font-mono">Authorization: Basic &lt;sha256 hex of username:password&gt;</span>.
-          Share the password over a separate channel from the username.
+          The client sends <span class="font-mono">Authorization: Basic &lt;sha256 hex of username:password&gt;</span>;
+          these credentials alone identify {@issued.name}. Share the password over a separate channel from the username.
         </p>
         <button phx-click="dismiss" class={[btn(:secondary, :sm), "mt-3"]}>I have saved these</button>
       </div>
 
-      <.card :if={@form} title="Add API client" class="mb-5">
+      <.card :if={@form} title="Add API Client" class="mb-5">
         <.form for={@form} id="client-form" phx-change="validate" phx-submit="save">
           <div class="grid gap-x-4 sm:grid-cols-3">
             <.input
@@ -67,7 +65,7 @@ defmodule KnraWeb.Admin.ApiClientsLive do
             />
             <.input
               field={@form[:client_code]}
-              label="Client code (From header)"
+              label="Client ID"
               placeholder="e.g. KENTRADE"
             />
             <.input field={@form[:username]} label="Username" placeholder="e.g. kentrade" />
@@ -87,9 +85,9 @@ defmodule KnraWeb.Admin.ApiClientsLive do
       <.card padded={false}>
         <.thead cols={@cols}>
           <div>Organisation</div>
-          <div>Client code</div>
+          <div>Client ID</div>
           <div>Username</div>
-          <div>Last call</div>
+          <div>Last call / IP</div>
           <div>Status</div>
           <div></div>
         </.thead>
@@ -102,13 +100,22 @@ defmodule KnraWeb.Admin.ApiClientsLive do
           <div class="font-semibold">{c.name}</div>
           <div class="font-mono text-xs">{c.client_code}</div>
           <div class="font-mono text-xs">{c.username}</div>
-          <div class="text-xs text-muted">{Knra.Time.format(c.last_used_at)}</div>
+          <div class="text-xs text-muted">
+            {Knra.Time.format(c.last_used_at)}
+            <div :if={c.last_used_ip} class="font-mono">{c.last_used_ip}</div>
+          </div>
           <div>
             <.pill tone={if(c.status == "active", do: :ok, else: :bad)}>
               {if c.status == "active", do: "Active", else: "Revoked"}
             </.pill>
           </div>
           <div class="flex flex-wrap justify-end gap-1.5">
+            <.link
+              navigate={~p"/admin/audit?#{%{object_type: "api_client", q: c.client_code}}"}
+              class={btn(:secondary, :sm)}
+            >
+              Activity
+            </.link>
             <button
               :if={c.status == "active"}
               phx-click="reset"
@@ -150,7 +157,7 @@ defmodule KnraWeb.Admin.ApiClientsLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, socket |> assign(page_title: "API clients", form: nil, issued: nil) |> load()}
+    {:ok, socket |> assign(page_title: "API Clients", form: nil, issued: nil) |> load()}
   end
 
   @impl true

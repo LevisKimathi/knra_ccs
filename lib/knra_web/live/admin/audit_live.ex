@@ -20,7 +20,7 @@ defmodule KnraWeb.Admin.AuditLive do
       active="audit"
       wide
     >
-      <.page_header title="Audit trail">
+      <.page_header title="Audit Trail">
         <:subtitle>
           Append-only: the database rejects edits and deletions, and each entry carries the hash of the one
           before it, so tampering breaks the chain. {@total} entries.
@@ -71,7 +71,8 @@ defmodule KnraWeb.Admin.AuditLive do
             {"Payment", "payment"},
             {"User", "user"},
             {"Device", "device"},
-            {"Fee schedule", "fee_schedule"}
+            {"Fee schedule", "fee_schedule"},
+            {"API client", "api_client"}
           ]}
         />
         <.input field={@filter[:from]} type="date" />
@@ -117,8 +118,10 @@ defmodule KnraWeb.Admin.AuditLive do
   end
 
   @impl true
-  def mount(_params, _session, socket) do
-    {:ok, socket |> assign(page_title: "Audit trail", filters: %{}, chain: nil) |> load()}
+  def mount(params, _session, socket) do
+    # Pre-filtered links, e.g. an API client's Activity button
+    filters = Map.take(params, ~w(q actor object_type from to))
+    {:ok, socket |> assign(page_title: "Audit Trail", filters: filters, chain: nil) |> load()}
   end
 
   @impl true

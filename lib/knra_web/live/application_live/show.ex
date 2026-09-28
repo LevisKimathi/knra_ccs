@@ -59,7 +59,7 @@ defmodule KnraWeb.ApplicationLive.Show do
 
       <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_400px]">
         <div class="min-w-0 space-y-5">
-          <.card title="Detector response">
+          <.card title="Detector Response">
             <:actions>
               <.pill tone={if(@app.alarmed, do: :bad, else: :ok)}>
                 {if @app.alarmed, do: "ALARM", else: "NO ALARM"}
@@ -105,7 +105,7 @@ defmodule KnraWeb.ApplicationLive.Show do
 
         <%!-- Action panel first on handhelds (field officers), right-hand column on desktop --%>
         <div class="min-w-0 space-y-5 max-xl:order-first">
-          <.card :if={@app.adjudication || @app.stage == "alarm"} title="CAS adjudication">
+          <.card :if={@app.adjudication || @app.stage == "alarm"} title="CAS Adjudication">
             <%= cond do %>
               <% @app.adjudication -> %>
                 <.decision
@@ -123,7 +123,7 @@ defmodule KnraWeb.ApplicationLive.Show do
             <% end %>
           </.card>
 
-          <.card :if={@app.inspection || @app.stage == "secondary"} title="Secondary inspection">
+          <.card :if={@app.inspection || @app.stage == "secondary"} title="Secondary Inspection">
             <%= cond do %>
               <% @app.inspection -> %>
                 <.decision
@@ -163,7 +163,7 @@ defmodule KnraWeb.ApplicationLive.Show do
             reject_form={@reject_form}
           />
 
-          <.card title="Status timeline">
+          <.card title="Status Timeline">
             <.timeline entries={@timeline} />
           </.card>
         </div>
@@ -327,7 +327,7 @@ defmodule KnraWeb.ApplicationLive.Show do
 
   defp payment_card(assigns) do
     ~H"""
-    <.card :if={@app.invoice} title="Screening fee" id="payment">
+    <.card :if={@app.invoice} title="Screening Fee" id="payment">
       <:actions><.invoice_badge invoice={@app.invoice} /></:actions>
       <.kv
         cols={3}
@@ -577,7 +577,7 @@ defmodule KnraWeb.ApplicationLive.Show do
     ~H"""
     <.card
       :if={@app.stage in ~w(report_draft report_check approved cleared)}
-      title="Screening report"
+      title="Screening Report"
       id="report"
     >
       <.kv
@@ -608,7 +608,7 @@ defmodule KnraWeb.ApplicationLive.Show do
       <div class="mt-5 space-y-3">
         <div class="text-sm font-bold">Approval</div>
         <.approval_step
-          title="Checking officer"
+          title="Checking Officer"
           done={@report && @report.status != "rejected"}
           detail={
             (@report && @report.status != "rejected" &&
@@ -617,7 +617,7 @@ defmodule KnraWeb.ApplicationLive.Show do
           }
         />
         <.approval_step
-          title="Verification officer"
+          title="Verification Officer"
           done={@report && @report.status == "approved"}
           detail={
             cond do

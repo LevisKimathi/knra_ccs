@@ -131,52 +131,52 @@ defmodule KnraWeb.Layouts do
       case role do
         "cas_operator" ->
           [
-            item("lanes", "Lane overview", ~p"/cas/lanes"),
-            item("alarms", "Alarm queue", ~p"/cas/alarms")
+            item("lanes", "Lane Overview", ~p"/cas/lanes"),
+            item("alarms", "Alarm Queue", ~p"/cas/alarms")
           ]
 
         "field_officer" ->
-          [item("inspections", "My inspections", ~p"/inspections")]
+          [item("inspections", "My Inspections", ~p"/inspections")]
 
         r when r in ["checking_officer", "verification_officer"] ->
-          [item("reports", "Screening reports", ~p"/reports")]
+          [item("reports", "Screening Reports", ~p"/reports")]
 
         "supervisor" ->
           [
-            item("lanes", "Lane overview", ~p"/cas/lanes"),
-            item("alarms", "Alarm queue", ~p"/cas/alarms"),
-            item("reports", "Screening reports", ~p"/reports")
+            item("lanes", "Lane Overview", ~p"/cas/lanes"),
+            item("alarms", "Alarm Queue", ~p"/cas/alarms"),
+            item("reports", "Screening Reports", ~p"/reports")
           ]
 
         "super_admin" ->
           [
-            item("lanes", "Lane overview", ~p"/cas/lanes"),
-            item("alarms", "Alarm queue", ~p"/cas/alarms"),
-            item("inspections", "Secondary inspections", ~p"/inspections"),
-            item("reports", "Screening reports", ~p"/reports")
+            item("lanes", "Lane Overview", ~p"/cas/lanes"),
+            item("alarms", "Alarm Queue", ~p"/cas/alarms"),
+            item("inspections", "Secondary Inspections", ~p"/inspections"),
+            item("reports", "Screening Reports", ~p"/reports")
           ]
 
         _ ->
           []
       end
 
-    work = work ++ [item("applications", "All applications", ~p"/applications")]
+    work = work ++ [item("applications", "All Applications", ~p"/applications")]
 
     admin =
       [
-        can.(:manage_devices) && item("devices", "RPM devices", ~p"/admin/devices"),
-        can.(:manage_users) && item("users", "Users & roles", ~p"/admin/users"),
-        can.(:manage_fees) && item("fees", "Fee schedule", ~p"/admin/fees"),
+        can.(:manage_devices) && item("devices", "RPM Devices", ~p"/admin/devices"),
+        can.(:manage_users) && item("users", "Users & Roles", ~p"/admin/users"),
+        can.(:manage_fees) && item("fees", "Fee Schedule", ~p"/admin/fees"),
         can.(:reconcile_payments) && item("payments", "Payments", ~p"/admin/payments"),
-        can.(:view_audit) && item("audit", "Audit trail", ~p"/admin/audit"),
+        can.(:view_audit) && item("audit", "Audit Trail", ~p"/admin/audit"),
         can.(:view_integrations) && item("integrations", "Integrations", ~p"/admin/integrations"),
-        can.(:manage_api_clients) && item("api_clients", "API clients", ~p"/admin/api-clients")
+        can.(:manage_api_clients) && item("api_clients", "API Clients", ~p"/admin/api-clients")
       ]
       |> Enum.filter(& &1)
 
     tools =
       if Knra.Simulator.enabled?() and can.(:simulate),
-        do: [item("simulator", "RPM & M-Pesa simulator", ~p"/simulator")],
+        do: [item("simulator", "RPM & M-Pesa Simulator", ~p"/simulator")],
         else: []
 
     [{"Screens", work}, {"Administration", admin}, {"Sandbox", tools}]

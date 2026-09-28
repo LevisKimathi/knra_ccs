@@ -16,7 +16,7 @@ defmodule KnraWeb.InspectionsLive do
       active="inspections"
     >
       <div class="mx-auto max-w-xl">
-        <.page_header title="My inspections">
+        <.page_header title="My Inspections">
           <:subtitle>
             {@current_scope.user.station || "Divert bay"} · containers diverted by the CAS for secondary (handheld) inspection.
           </:subtitle>
@@ -52,7 +52,7 @@ defmodule KnraWeb.InspectionsLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, socket |> assign(:page_title, "My inspections") |> load()}
+    {:ok, socket |> assign(:page_title, "My Inspections") |> load()}
   end
 
   @impl true

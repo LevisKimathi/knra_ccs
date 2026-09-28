@@ -185,11 +185,12 @@ defmodule Knra.SuperAdminTest do
     {:ok, _lv, html} = live(log_in_user(build_conn(), ctx.super_admin.user), ~p"/cas/lanes")
 
     for label <- [
-          "Alarm queue",
-          "Secondary inspections",
-          "Screening reports",
-          "Users &amp; roles",
-          "Audit trail"
+          "Alarm Queue",
+          "Secondary Inspections",
+          "Screening Reports",
+          "Users &amp; Roles",
+          "Audit Trail",
+          "API Clients"
         ] do
       assert html =~ label
     end

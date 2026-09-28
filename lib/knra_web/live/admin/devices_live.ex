@@ -20,7 +20,7 @@ defmodule KnraWeb.Admin.DevicesLive do
       nav_counts={@nav_counts}
       active="devices"
     >
-      <.page_header title="RPM devices">
+      <.page_header title="RPM Devices">
         <:subtitle>
           Port of Mombasa. Taking a lane out of service reroutes traffic away from it; every state change
           is audited with its reason.
@@ -34,7 +34,7 @@ defmodule KnraWeb.Admin.DevicesLive do
 
       <.card
         :if={@edit_form}
-        title={if @editing == "new", do: "Register device", else: "Edit device"}
+        title={if @editing == "new", do: "Register Device", else: "Edit Device"}
         class="mb-5"
       >
         <.form for={@edit_form} id="lane-form" phx-change="validate" phx-submit="save">
@@ -148,7 +148,7 @@ defmodule KnraWeb.Admin.DevicesLive do
   def mount(_params, _session, socket) do
     {:ok,
      socket
-     |> assign(page_title: "RPM devices", fault_id: nil, edit_form: nil, editing: nil)
+     |> assign(page_title: "RPM Devices", fault_id: nil, edit_form: nil, editing: nil)
      |> load()}
   end
 

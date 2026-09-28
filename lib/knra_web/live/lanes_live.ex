@@ -66,7 +66,7 @@ defmodule KnraWeb.LanesLive do
       </div>
 
       <div class="grid gap-5 lg:grid-cols-2">
-        <.card title="Alarm queue" padded={false}>
+        <.card title="Alarm Queue" padded={false}>
           <:actions>
             <.link navigate={~p"/cas/alarms"} class="text-xs font-semibold text-brand">
               Open queue →
@@ -90,7 +90,7 @@ defmodule KnraWeb.LanesLive do
           <.empty :if={@alarms == []} text="No alarms awaiting adjudication." />
         </.card>
 
-        <.card title="Recent occupancies" padded={false}>
+        <.card title="Recent Occupancies" padded={false}>
           <div
             :for={a <- @recent}
             class="flex items-center gap-3.5 border-b border-line-soft px-5 py-3 last:border-0"
@@ -119,7 +119,7 @@ defmodule KnraWeb.LanesLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, socket |> assign(:page_title, "Lane overview") |> load()}
+    {:ok, socket |> assign(:page_title, "Lane Overview") |> load()}
   end
 
   @impl true

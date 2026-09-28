@@ -9,7 +9,7 @@ defmodule KnraWeb.VerifyLive do
   def render(assigns) do
     ~H"""
     <Layouts.auth flash={@flash} current_scope={@current_scope}>
-      <h1 class="text-xl font-bold">Verify a screening certificate</h1>
+      <h1 class="text-xl font-bold">Verify a Screening Certificate</h1>
       <p class="mt-1 mb-5 text-sm text-muted">
         Enter the certificate number printed on a KNRA Radiation Screening Certificate.
       </p>
@@ -51,7 +51,7 @@ defmodule KnraWeb.VerifyLive do
   def mount(params, _session, socket) do
     socket =
       assign(socket,
-        page_title: "Verify certificate",
+        page_title: "Verify Certificate",
         result: nil,
         form: to_form(%{"number" => params["n"] || ""}, as: :verify)
       )

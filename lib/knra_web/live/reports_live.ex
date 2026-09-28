@@ -23,7 +23,7 @@ defmodule KnraWeb.ReportsLive do
       nav_counts={@nav_counts}
       active="reports"
     >
-      <.page_header title="Screening reports — maker / checker">
+      <.page_header title="Screening Reports — Maker / Checker">
         <:subtitle>
           The checking officer drafts and submits the report; a different verification officer approves it.
           An approved report with a paid invoice clears the container and issues the certificate.
@@ -70,7 +70,7 @@ defmodule KnraWeb.ReportsLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, socket |> assign(:page_title, "Screening reports") |> load()}
+    {:ok, socket |> assign(:page_title, "Screening Reports") |> load()}
   end
 
   @impl true
@@ -78,8 +78,8 @@ defmodule KnraWeb.ReportsLive do
   def handle_info(_, socket), do: {:noreply, socket}
 
   defp load(socket) do
-    drafts = {"Awaiting screening report", Screening.list_by_stage("report_draft")}
-    checks = {"Awaiting verification", Screening.list_by_stage("report_check")}
+    drafts = {"Awaiting Screening Report", Screening.list_by_stage("report_draft")}
+    checks = {"Awaiting Verification", Screening.list_by_stage("report_check")}
 
     sections =
       case socket.assigns.current_scope.user.role do

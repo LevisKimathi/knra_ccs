@@ -26,10 +26,9 @@ defmodule KnraWeb.ContainerStatusApiTest do
 
   @path "/api/container-status"
 
-  defp authed(conn, code \\ "KENTRADE", user \\ "kentrade-test", pass \\ "test-status-password") do
+  defp authed(conn, user \\ "kentrade-test", pass \\ "test-status-password") do
     conn
     |> put_req_header("content-type", "application/json")
-    |> put_req_header("from", code)
     |> put_req_header("authorization", "Basic " <> Knra.ApiClients.token(user, pass))
   end
 
@@ -173,10 +172,7 @@ defmodule KnraWeb.ContainerStatusApiTest do
 
   describe "request validation and auth" do
     test "rejects missing or wrong credentials", %{conn: conn} do
-      conn =
-        conn
-        |> put_req_header("content-type", "application/json")
-        |> put_req_header("from", "KENTRADE")
+      conn = put_req_header(conn, "content-type", "application/json")
 
       assert %{"status" => "UNAUTHORIZED"} = conn |> post(@path, "[]") |> json_response(401)
 
@@ -200,6 +196,10 @@ defmodule KnraWeb.ContainerStatusApiTest do
     test "flags malformed items without failing the batch", %{conn: conn} do
       assert [%{"status" => "INVALID_REQUEST"}, %{"status" => "NOT_FOUND"}] =
                query(conn, [%{"container" => "x"}, %{"containerNumber" => "ABCU0000001"}])
+    end
+
+    test "no From header is needed: the credentials identify the client", %{conn: conn} do
+      assert [%{"status" => "NOT_FOUND"}] = query(conn, [%{"containerNumber" => "ABCU0000001"}])
     end
 
     test "every call is logged against the calling client", %{conn: conn} do
@@ -226,13 +226,13 @@ defmodule KnraWeb.ContainerStatusApiTest do
 
       assert [%{"status" => "NOT_FOUND"}] =
                conn
-               |> authed("MTO", "mto", pw)
+               |> authed("mto", pw)
                |> post(@path, ~s([{"containerNumber":"ABCU0000001"}]))
                |> json_response(200)
 
       # KenTrade's password with MTO's code is refused
       assert build_conn()
-             |> authed("MTO", "mto", "test-status-password")
+             |> authed("mto", "test-status-password")
              |> post(@path, "[]")
              |> response(401)
     end
@@ -259,7 +259,7 @@ defmodule KnraWeb.ContainerStatusApiTest do
       assert build_conn() |> authed() |> post(@path, "[]") |> response(401)
 
       assert build_conn()
-             |> authed("KENTRADE", "kentrade-test", new_pw)
+             |> authed("kentrade-test", new_pw)
              |> post(@path, ~s([{"containerNumber":"ABCU0000001"}]))
              |> response(200)
     end
@@ -281,6 +281,92 @@ defmodule KnraWeb.ContainerStatusApiTest do
 
       assert {:error, :unauthorized} =
                Knra.ApiClients.set_status(ctx.cas_operator, ctx.api_client, "revoked")
+    end
+  end
+
+  describe "audit trail of API calls" do
+    defp api_audit, do: Knra.Audit.search(%{"object_type" => "api_client"})
+
+    test "a successful call records client, credentials, IP, agent and what was asked", %{
+      conn: conn
+    } do
+      rpm_pass("MSKU7741293")
+
+      conn
+      |> authed()
+      |> put_req_header("user-agent", "KenTrade-TFP/1.0")
+      |> put_req_header("x-real-ip", "196.201.10.20")
+      |> post(
+        @path,
+        Jason.encode!([
+          %{"containerNumber" => "MSKU7741293"},
+          %{"containerNumber" => "ABCU0000001"}
+        ])
+      )
+      |> json_response(200)
+
+      [entry | _] = api_audit()
+      assert entry.object_ref == "KENTRADE"
+      assert entry.actor_name == "API · Kenya Trade Network Agency"
+      assert entry.action =~ "Container status queried — 2 container(s)"
+      assert entry.action =~ "1 IN_PROGRESS"
+      assert entry.action =~ "1 NOT_FOUND"
+      assert entry.note =~ "credentials: kentrade-test"
+      assert entry.note =~ "IP 196.201.10.20"
+      assert entry.note =~ "agent KenTrade-TFP/1.0"
+      assert entry.note =~ "MSKU7741293"
+
+      client = Knra.Repo.get_by!(Knra.ApiClients.Client, client_code: "KENTRADE")
+      assert client.last_used_ip == "196.201.10.20"
+      assert client.last_used_at
+    end
+
+    test "unknown credentials are recorded with a token fingerprint, never the token", %{
+      conn: conn
+    } do
+      bad = Knra.ApiClients.token("someone", "guess")
+
+      conn
+      |> put_req_header("content-type", "application/json")
+      |> put_req_header("authorization", "Basic " <> bad)
+      |> post(@path, "[]")
+      |> response(401)
+
+      [entry | _] = api_audit()
+      assert entry.action == "Refused API call — unknown credentials"
+      assert entry.note =~ ~r/token fingerprint: [0-9a-f]{12}/
+      refute entry.note =~ bad
+    end
+
+    test "a revoked client's attempt is recorded under its name", %{conn: conn} = ctx do
+      {:ok, _} = Knra.ApiClients.set_status(ctx.supervisor, ctx.api_client, "revoked")
+      conn |> authed() |> post(@path, "[]") |> response(401)
+
+      [entry | _] = api_audit()
+      assert entry.action == "Refused API call — revoked credentials (Kenya Trade Network Agency)"
+      assert entry.note =~ "credentials: kentrade-test"
+    end
+
+    test "missing credentials are recorded", %{conn: conn} do
+      conn
+      |> put_req_header("content-type", "application/json")
+      |> post(@path, "[]")
+      |> response(401)
+
+      assert [%{action: "Refused API call — no credentials"} | _] = api_audit()
+    end
+
+    test "X-Real-IP is only trusted from the local proxy", %{conn: conn} do
+      conn
+      |> Map.put(:remote_ip, {41, 90, 140, 165})
+      |> authed()
+      |> put_req_header("x-real-ip", "10.0.0.1")
+      |> post(@path, ~s([{"containerNumber":"ABCU0000001"}]))
+      |> response(200)
+
+      [entry | _] = api_audit()
+      assert entry.note =~ "IP 41.90.140.165"
+      refute entry.note =~ "10.0.0.1"
     end
   end
 end

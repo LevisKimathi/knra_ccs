@@ -178,7 +178,7 @@ defmodule Knra.Release do
          ) do
       {:ok, client, pw} ->
         IO.puts("API client #{client.name} registered.")
-        IO.puts("  From (client code): #{client.client_code}")
+        IO.puts("  Client ID:          #{client.client_code}")
         IO.puts("  Username:           #{client.username}")
         if is_nil(password), do: IO.puts("  Password:           #{pw}  (not shown again)")
         {:ok, client.id}

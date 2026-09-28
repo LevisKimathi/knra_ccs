@@ -20,7 +20,7 @@ defmodule KnraWeb.ApplicationLive.Index do
       nav_counts={@nav_counts}
       active="applications"
     >
-      <.page_header title="Screening applications">
+      <.page_header title="Screening Applications">
         <:subtitle>One application is opened for every RPM occupancy.</:subtitle>
       </.page_header>
 

@@ -15,7 +15,7 @@ defmodule KnraWeb.Admin.FeesLive do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} current_scope={@current_scope} nav_counts={@nav_counts} active="fees">
-      <.page_header title="Fee schedule">
+      <.page_header title="Fee Schedule">
         <:subtitle>
           Gazetted screening fees. Changes are versioned and need approval by a second supervisor before
           their effective date.
@@ -27,7 +27,7 @@ defmodule KnraWeb.Admin.FeesLive do
         </:actions>
       </.page_header>
 
-      <.card :if={@live_action == :new} title="Propose a new fee schedule" class="mb-6">
+      <.card :if={@live_action == :new} title="Propose a New Fee Schedule" class="mb-6">
         <.form for={@form} id="fee-form" phx-change="validate" phx-submit="propose">
           <div class="grid gap-x-4 sm:grid-cols-[200px_1fr]">
             <.input field={@form[:effective_from]} type="date" label="Effective from" />
@@ -164,7 +164,7 @@ defmodule KnraWeb.Admin.FeesLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, socket |> assign(:page_title, "Fee schedule") |> load()}
+    {:ok, socket |> assign(:page_title, "Fee Schedule") |> load()}
   end
 
   @impl true

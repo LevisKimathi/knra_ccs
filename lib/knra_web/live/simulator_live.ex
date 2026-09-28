@@ -21,7 +21,7 @@ defmodule KnraWeb.SimulatorLive do
       nav_counts={@nav_counts}
       active="simulator"
     >
-      <.page_header title="RPM & M-Pesa simulator">
+      <.page_header title="RPM & M-Pesa Simulator">
         <:subtitle>
           Stands in for hardware and payment callbacks in development and training environments.
           An RPM pass creates a real screening application, queries KenTrade and raises an invoice.
@@ -29,7 +29,7 @@ defmodule KnraWeb.SimulatorLive do
       </.page_header>
 
       <div class="grid gap-5 lg:grid-cols-2">
-        <.card title="Simulate RPM pass">
+        <.card title="Simulate RPM Pass">
           <.form for={@rpm_form} id="rpm-form" phx-submit="rpm_pass">
             <.input
               field={@rpm_form[:container]}
@@ -63,7 +63,7 @@ defmodule KnraWeb.SimulatorLive do
           </div>
         </.card>
 
-        <.card title="Simulate M-Pesa Paybill payment" padded={false}>
+        <.card title="Simulate M-Pesa Paybill Payment" padded={false}>
           <div class="px-5 pt-4 text-xs text-muted">
             Paybill 222222. The account number the importer types is matched to the invoice number.
           </div>

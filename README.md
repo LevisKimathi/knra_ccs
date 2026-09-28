@@ -78,9 +78,15 @@ mix precommit      # compile with warnings as errors, format, test
 `POST /api/container-status` — up to 100 containers per call, for any registered API client
 (KenTrade, shipping lines, terminal operators, ...). Clients are managed under
 *Administration → API clients*: each has its own client code, username and generated password,
-and can be revoked or given a new password on its own. Authentication: `From: <client code>` and
-`Authorization: Basic <sha256_hex("username:password")>`. Only a hash of each token is stored, and
-every call is logged against the calling client under *Integrations*.
+and can be revoked or given a new password on its own. Authentication is the header
+`Authorization: Basic <sha256_hex("username:password")>` alone; the credentials identify the client.
+Only a hash of each token is stored.
+
+Every call is written to the audit trail (object type *API client*): the client, the credentials
+used, the caller's IP (from nginx's `X-Real-IP`, trusted only from the local proxy) and user agent,
+the containers queried and the result counts. Refused calls are recorded too: revoked credentials
+under the client's name, unknown credentials with a 12-character token fingerprint (never the
+token). Each client's *Activity* button on the API clients page opens its audit history.
 
 ```json
 [

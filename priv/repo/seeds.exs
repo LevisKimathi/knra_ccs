@@ -62,7 +62,7 @@ checker = scope.("f.achieng@knra.go.ke")
 supervisor = scope.("l.njoroge@knra.go.ke")
 
 # ---- Container status API client for local testing
-# From: KENTRADE, token = sha256_hex("kentrade-dev:dev-status-password")
+# Authorization: Basic sha256_hex("kentrade-dev:dev-status-password")
 {:ok, _, _} =
   Knra.ApiClients.create_client(
     supervisor,

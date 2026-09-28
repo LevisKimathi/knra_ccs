@@ -18,7 +18,7 @@ defmodule KnraWeb.Admin.UsersLive do
 
     ~H"""
     <Layouts.app flash={@flash} current_scope={@current_scope} nav_counts={@nav_counts} active="users">
-      <.page_header title="Users & roles">
+      <.page_header title="Users & Roles">
         <:subtitle>
           Roles mirror the KNRA Single Window model. Each user holds one role at a time, so the checking
           and verification officer on a report are always different people. Suspending a user ends their sessions immediately.
@@ -30,7 +30,7 @@ defmodule KnraWeb.Admin.UsersLive do
 
       <.card
         :if={@live_action in [:new, :edit]}
-        title={if @live_action == :new, do: "Add user", else: "Edit #{@user.name}"}
+        title={if @live_action == :new, do: "Add User", else: "Edit #{@user.name}"}
         class="mb-5"
       >
         <.form for={@form} id="user-form" phx-change="validate" phx-submit="save">
@@ -164,7 +164,7 @@ defmodule KnraWeb.Admin.UsersLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, socket |> assign(page_title: "Users & roles", filters: %{}) |> load()}
+    {:ok, socket |> assign(page_title: "Users & Roles", filters: %{}) |> load()}
   end
 
   @impl true

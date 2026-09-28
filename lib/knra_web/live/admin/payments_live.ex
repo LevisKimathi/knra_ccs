@@ -20,14 +20,14 @@ defmodule KnraWeb.Admin.PaymentsLive do
       nav_counts={@nav_counts}
       active="payments"
     >
-      <.page_header title="Payment reconciliation">
+      <.page_header title="Payment Reconciliation">
         <:subtitle>
           M-Pesa Paybill payments are matched automatically when the account number is the invoice number.
           Payments whose account number did not match an invoice wait here to be applied manually.
         </:subtitle>
       </.page_header>
 
-      <.card padded={false} title="Unmatched payments">
+      <.card padded={false} title="Unmatched Payments">
         <.thead cols={@cols}>
           <div>Method</div>
           <div>Reference</div>

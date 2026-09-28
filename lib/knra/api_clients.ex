@@ -4,9 +4,8 @@ defmodule Knra.ApiClients do
   lines, terminal operators, ...). Each has its own client code, username and
   password and can be revoked on its own.
 
-  Authentication scheme (same as KenTrade's PGA API):
+  Authentication: the credentials alone identify the client.
 
-      From: <client code>
       Authorization: Basic <sha256_hex("username:password")>
 
   Only `sha256_hex(<that token>)` is stored. The password is generated here and
@@ -89,25 +88,78 @@ defmodule Knra.ApiClients do
   end
 
   @doc """
-  Returns the active client for the `From` code and `Authorization` header value,
-  or nil. Compares hashes in constant time.
+  Identifies the caller from the `Authorization` header alone:
+  `Basic <sha256_hex("username:password")>`. The client is found by the hash of
+  that token, so no client code needs to be sent.
+
+  Returns `{:ok, client}`, `{:revoked, client}` or `{:unknown, fingerprint}`,
+  where the fingerprint (first 12 hex characters of the token's hash) lets
+  repeated attempts with the same bad credentials be linked without storing them.
   """
-  def authenticate(client_code, authorization) do
-    with code when code not in [nil, ""] <- client_code,
-         "Basic " <> token <- authorization || "",
-         %Client{status: "active"} = client <-
-           Repo.get_by(Client, client_code: String.upcase(String.trim(code))),
-         true <- Plug.Crypto.secure_compare(hash(String.downcase(token)), client.token_hash) do
-      client
-    else
-      _ -> nil
+  def authenticate(authorization) do
+    case authorization do
+      "Basic " <> token ->
+        token_hash = hash(token |> String.trim() |> String.downcase())
+
+        case Repo.get_by(Client, token_hash: token_hash) do
+          %Client{status: "active"} = client -> {:ok, client}
+          %Client{} = client -> {:revoked, client}
+          nil -> {:unknown, String.slice(token_hash, 0, 12)}
+        end
+
+      _ ->
+        {:unknown, nil}
     end
   end
 
-  def touch(%Client{id: id}) do
+  def touch(%Client{id: id}, ip) do
     Repo.update_all(from(c in Client, where: c.id == ^id),
-      set: [last_used_at: DateTime.utc_now(:second)]
+      set: [last_used_at: DateTime.utc_now(:second), last_used_ip: ip]
     )
+  end
+
+  @doc """
+  Records an API call in the audit trail: which client, whose credentials, from
+  which IP and software, and what was asked. `caller` is `%{ip:, user_agent:}`.
+  """
+  def audit_call(%Client{} = client, caller, action, detail \\ nil) do
+    Audit.log(
+      "API · #{client.name}",
+      :api_client,
+      client.client_code,
+      action,
+      caller_note(caller, ["credentials: #{client.username}", detail])
+    )
+  end
+
+  def audit_rejected(reason, caller) do
+    {ref, action, detail} =
+      case reason do
+        {:revoked, %Client{} = c} ->
+          {c.client_code, "Refused API call — revoked credentials (#{c.name})",
+           "credentials: #{c.username}"}
+
+        {:unknown, nil} ->
+          {"unknown", "Refused API call — no credentials", nil}
+
+        {:unknown, fingerprint} ->
+          {"unknown", "Refused API call — unknown credentials",
+           "token fingerprint: #{fingerprint}"}
+      end
+
+    Audit.log(
+      "API · unidentified caller",
+      :api_client,
+      ref,
+      action,
+      caller_note(caller, [detail])
+    )
+  end
+
+  defp caller_note(caller, parts) do
+    (parts ++ ["IP #{caller.ip}", caller.user_agent && "agent #{caller.user_agent}"])
+    |> Enum.reject(&(&1 in [nil, ""]))
+    |> Enum.join(" · ")
   end
 
   @doc "The token a client sends: sha256_hex(\"username:password\")."

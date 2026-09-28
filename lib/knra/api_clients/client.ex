@@ -9,6 +9,7 @@ defmodule Knra.ApiClients.Client do
     field :token_hash, :string, redact: true
     field :status, :string, default: "active"
     field :last_used_at, :utc_datetime
+    field :last_used_ip, :string
 
     belongs_to :created_by, Knra.Accounts.User
 
@@ -29,6 +30,8 @@ defmodule Knra.ApiClients.Client do
       message: "2-60 characters, no spaces or colons"
     )
     |> unique_constraint(:client_code, message: "is already used by another client")
+    |> unique_constraint(:username, message: "is already used by another client")
+    |> unique_constraint(:token_hash, message: "these credentials are already in use")
   end
 
   def active?(%__MODULE__{status: "active"}), do: true
