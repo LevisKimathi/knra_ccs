@@ -31,6 +31,14 @@ set -a
 . "$ENV_FILE"
 set +a
 
+# `current` must be a symlink. If it is a real directory (e.g. created by hand),
+# `ln -sfn` below would put the link *inside* it and systemd would keep failing
+# with 203/EXEC.
+if [ -e "$CURRENT_LINK" ] && [ ! -L "$CURRENT_LINK" ]; then
+  echo "$CURRENT_LINK exists but is not a symlink — remove it (rm -rf $CURRENT_LINK) and re-run." >&2
+  exit 1
+fi
+
 BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 echo "==> Fetching latest $BRANCH"
 git fetch --quiet origin

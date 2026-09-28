@@ -45,7 +45,7 @@ defmodule Knra.Release do
         )
 
         Knra.Accounts.deliver_login_instructions(user, fn token ->
-          url = KnraWeb.Endpoint.url() <> "/users/log-in/" <> token
+          url = KnraWeb.Endpoint.url() <> KnraWeb.Endpoint.path("/users/log-in/" <> token)
           IO.puts("Login link (valid 15 minutes, also emailed): #{url}")
           url
         end)

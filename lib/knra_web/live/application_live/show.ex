@@ -770,7 +770,9 @@ defmodule KnraWeb.ApplicationLive.Show do
 
   @impl true
   def handle_params(params, _uri, socket) do
-    {:noreply, assign(socket, :back, params["from"] || back_path(socket))}
+    # Only known screens, never a caller-supplied path (open redirect)
+    back = if params["from"] == "simulator", do: ~p"/simulator", else: back_path(socket)
+    {:noreply, assign(socket, :back, back)}
   end
 
   defp load(socket) do

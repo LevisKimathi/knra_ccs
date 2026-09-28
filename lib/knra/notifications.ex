@@ -94,5 +94,6 @@ defmodule Knra.Notifications do
   defp c(app), do: Application.display_container(app.container_number)
   defp lane(%{lane: %{name: n}}), do: n
   defp lane(_), do: "RPM"
-  defp url(path), do: KnraWeb.Endpoint.url() <> path
+  # Endpoint.path/1 adds the PHX_PATH prefix (e.g. /knra) when served under a sub-path
+  defp url(path), do: KnraWeb.Endpoint.url() <> KnraWeb.Endpoint.path(path)
 end

@@ -98,10 +98,15 @@ if config_env() == :prod do
 
   host = System.get_env("PHX_HOST") || "example.com"
 
+  # Serve under a sub-path behind nginx (e.g. PHX_PATH="/knra" for
+  # https://linktivity.dev/knra/). nginx strips the prefix; generated links,
+  # assets, emailed URLs and the LiveView socket get it added back.
+  path = System.get_env("PHX_PATH") || "/"
+
   config :knra, :dns_cluster_query, System.get_env("DNS_CLUSTER_QUERY")
 
   config :knra, KnraWeb.Endpoint,
-    url: [host: host, port: 443, scheme: "https"],
+    url: [host: host, port: 443, scheme: "https", path: path],
     http: [
       # Enable IPv6 and bind on all interfaces.
       # Set it to  {0, 0, 0, 0, 0, 0, 0, 1} for local network only access.

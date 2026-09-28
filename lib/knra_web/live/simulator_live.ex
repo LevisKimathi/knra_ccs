@@ -136,7 +136,7 @@ defmodule KnraWeb.SimulatorLive do
            :info,
            "#{app.reference}: #{if app.alarmed, do: "radiation alarm — sent to the alarm queue", else: "clear pass — sent for report drafting"}."
          )
-         |> push_navigate(to: ~p"/applications/#{app.reference}?from=/simulator")}
+         |> push_navigate(to: ~p"/applications/#{app.reference}?from=simulator")}
 
       {:error, reason} ->
         {:noreply,

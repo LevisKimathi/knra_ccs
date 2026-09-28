@@ -26,7 +26,9 @@ import {hooks as colocatedHooks} from "phoenix-colocated/knra"
 import topbar from "../vendor/topbar"
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
-const liveSocket = new LiveSocket("/live", Socket, {
+// "/live" or, when served under a sub-path (PHX_PATH), e.g. "/knra/live"
+const liveSocketPath = document.querySelector("meta[name='live-socket-path']")?.getAttribute("content") || "/live"
+const liveSocket = new LiveSocket(liveSocketPath, Socket, {
   longPollFallbackMs: 2500,
   params: {_csrf_token: csrfToken},
   hooks: {...colocatedHooks},

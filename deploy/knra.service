@@ -1,6 +1,9 @@
 # Install to /etc/systemd/system/knra.service, then:
 #   sudo systemctl daemon-reload
-#   sudo systemctl enable --now knra
+#   sudo systemctl enable knra
+# and run deploy/deploy.sh, which builds the first release and starts the
+# service. (`enable --now` before the first deploy fails: /srv/knra/current
+# does not exist yet.) /srv/knra/uploads must exist before the service starts.
 #
 # /srv/knra/current is a symlink to the most recently deployed release,
 # swapped atomically by deploy/deploy.sh on each deploy.
@@ -17,6 +20,8 @@ Type=exec
 WorkingDirectory=/srv/knra/current
 EnvironmentFile=/etc/knra/knra.env
 Environment=RELEASE_TMP=/tmp
+# The release directory is read-only (ProtectSystem=strict); write crash dumps to the private /tmp
+Environment=ERL_CRASH_DUMP=/tmp/erl_crash.dump
 ExecStart=/srv/knra/current/bin/server
 ExecStop=/srv/knra/current/bin/knra stop
 Restart=on-failure

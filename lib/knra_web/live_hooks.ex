@@ -39,7 +39,7 @@ defmodule KnraWeb.LiveHooks do
       {:halt,
        socket
        |> put_flash(:error, "Your role does not have access to that screen.")
-       |> redirect(to: "/")}
+       |> redirect(to: KnraWeb.Endpoint.path("/"))}
     end
   end
 
@@ -50,7 +50,7 @@ defmodule KnraWeb.LiveHooks do
       {:halt,
        socket
        |> put_flash(:error, "Simulators are disabled in this environment.")
-       |> redirect(to: "/")}
+       |> redirect(to: KnraWeb.Endpoint.path("/"))}
     end
   end
 
