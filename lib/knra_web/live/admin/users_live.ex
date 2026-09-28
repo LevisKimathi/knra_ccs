@@ -116,6 +116,9 @@ defmodule KnraWeb.Admin.UsersLive do
               phx-value-id={u.id}
               phx-value-status="suspended"
               data-confirm={"Suspend #{u.name}? Their sessions end immediately."}
+              data-confirm-title="Suspend User"
+              data-confirm-button="Suspend"
+              data-confirm-variant="danger"
               class={btn(:warn, :sm)}
             >
               Suspend
@@ -135,6 +138,9 @@ defmodule KnraWeb.Admin.UsersLive do
               phx-value-id={u.id}
               phx-value-status="deactivated"
               data-confirm={"Deactivate #{u.name}? Use this when they leave KNRA."}
+              data-confirm-title="Deactivate User"
+              data-confirm-button="Deactivate"
+              data-confirm-variant="danger"
               class={btn(:danger, :sm)}
             >
               Deactivate
@@ -144,6 +150,8 @@ defmodule KnraWeb.Admin.UsersLive do
               phx-click="reset"
               phx-value-id={u.id}
               data-confirm={"Clear #{u.name}'s password and email them a login link?"}
+              data-confirm-title="Reset Password"
+              data-confirm-button="Reset Password"
               class={btn(:secondary, :sm)}
             >
               Reset password

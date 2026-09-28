@@ -121,6 +121,8 @@ defmodule KnraWeb.Admin.ApiClientsLive do
               phx-click="reset"
               phx-value-id={c.id}
               data-confirm={"Issue a new password for #{c.name}? The current one stops working immediately."}
+              data-confirm-title="Issue New Password"
+              data-confirm-button="Issue Password"
               class={btn(:secondary, :sm)}
             >
               New password
@@ -131,6 +133,9 @@ defmodule KnraWeb.Admin.ApiClientsLive do
               phx-value-id={c.id}
               phx-value-status="revoked"
               data-confirm={"Revoke API access for #{c.name}?"}
+              data-confirm-title="Revoke API Access"
+              data-confirm-button="Revoke"
+              data-confirm-variant="danger"
               class={btn(:danger, :sm)}
             >
               Revoke

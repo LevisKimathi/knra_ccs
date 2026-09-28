@@ -19,6 +19,8 @@
 
 // Include phoenix_html to handle method=PUT/DELETE in forms and buttons.
 import "phoenix_html"
+// KNRA-styled dialog for data-confirm (replaces the browser's confirm box)
+import "./confirm_dialog"
 // Establish Phoenix Socket and LiveView configuration.
 import {Socket} from "phoenix"
 import {LiveSocket} from "phoenix_live_view"

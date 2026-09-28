@@ -109,6 +109,9 @@ defmodule KnraWeb.Admin.DevicesLive do
                 phx-value-id={lane.id}
                 class={btn(:ok, :sm)}
                 data-confirm={"Return #{lane.name} to service?"}
+                data-confirm-title="Return to Service"
+                data-confirm-button="Return to Service"
+                data-confirm-variant="ok"
               >
                 Return to service
               </button>

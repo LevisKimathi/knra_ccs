@@ -674,7 +674,15 @@ defmodule KnraWeb.ApplicationLive.Show do
           phx-click="approve_report"
           class={[btn(:ok), "w-full"]}
           phx-disable-with="Approving…"
-          data-confirm="Approve this screening report?"
+          data-confirm={
+            if @app.invoice && @app.invoice.status == "paid",
+              do:
+                "The screening fee is paid, so the container will be cleared and its certificate issued immediately.",
+              else: "The certificate will be issued as soon as the screening fee is paid."
+          }
+          data-confirm-title="Approve Screening Report"
+          data-confirm-button="Approve"
+          data-confirm-variant="ok"
         >
           Approve screening report
         </button>
