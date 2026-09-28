@@ -97,7 +97,7 @@ defmodule Knra.Billing do
     end
   end
 
-  @doc "Approves a pending schedule. The proposer cannot approve their own proposal."
+  @doc "Approves a pending schedule. The proposer cannot approve their own proposal (super admins excepted)."
   def approve_fee_schedule(scope, %FeeSchedule{} = s) do
     with :ok <- Policy.authorize(scope, :manage_fees),
          :ok <- pending(s),
@@ -118,7 +118,9 @@ defmodule Knra.Billing do
           :fee_schedule,
           "v#{s.version}",
           "Fee schedule v#{s.version} approved",
-          "Effective #{Knra.Time.format_date(s.effective_from)}"
+          ["Effective #{Knra.Time.format_date(s.effective_from)}", own_proposal_note(scope, s)]
+          |> Enum.reject(&is_nil/1)
+          |> Enum.join(". ")
         )
 
         updated
@@ -149,7 +151,7 @@ defmodule Knra.Billing do
           :fee_schedule,
           "v#{s.version}",
           "Fee schedule v#{s.version} rejected",
-          reason
+          [reason, own_proposal_note(scope, s)] |> Enum.reject(&is_nil/1) |> Enum.join(". ")
         )
 
         updated
@@ -160,10 +162,16 @@ defmodule Knra.Billing do
   defp pending(%FeeSchedule{status: "pending_approval"}), do: :ok
   defp pending(_), do: {:error, :not_pending}
 
-  defp not_own(scope, %FeeSchedule{created_by_id: id}) when id == scope.user.id,
-    do: {:error, :segregation_of_duties}
+  defp not_own(scope, %FeeSchedule{created_by_id: id}) do
+    if id == scope.user.id and not Policy.segregation_exempt?(scope),
+      do: {:error, :segregation_of_duties},
+      else: :ok
+  end
 
-  defp not_own(_, _), do: :ok
+  defp own_proposal_note(scope, %FeeSchedule{created_by_id: id}) when id == scope.user.id,
+    do: "Proposed and decided by the same super administrator (segregation of duties overridden)"
+
+  defp own_proposal_note(_scope, _schedule), do: nil
 
   defp not_backdated(%FeeSchedule{effective_from: d}) do
     if Date.compare(d, Knra.Time.today()) == :lt, do: {:error, :effective_date_passed}, else: :ok

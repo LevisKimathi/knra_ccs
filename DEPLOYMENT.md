@@ -58,8 +58,9 @@ Releases are built **on the server** from a git checkout and swapped in atomical
    `127.0.0.1:$PORT`, forwarding `X-Forwarded-Proto` and WebSocket upgrades (`/live`). The app
    redirects plain HTTP to HTTPS except for `/health` and localhost.
 
-7. **KenTrade**: give KenTrade `https://$PHX_HOST/api/kentrade/container-status` with the
-   `STATUS_API_*` credentials, and the server's public IP in case they allow-list callers.
+7. **API clients**: register each organisation that will query container status under
+   *Administration → API clients* and send it `https://$PHX_HOST$PHX_PATH/api/container-status`
+   with its credentials. Give KenTrade the server's public IP in case they allow-list callers.
 
 ## Deploying
 
@@ -90,6 +91,13 @@ The production database starts empty (seeds are for development only):
 
 Run these with `bin/knra` (not `bin/server`, which always starts a new node), with the env file
 loaded first: `cd /srv/knra/current && set -a && . /etc/knra/knra.env && set +a`.
+
+API clients are normally added under **Administration → API clients**. To register one from the
+console, keeping a password already given to the partner (omit it to generate one):
+
+```bash
+/srv/knra/current/bin/knra rpc 'Knra.Release.create_api_client("Kenya Trade Network Agency", "KENTRADE", "KENTRADE", "existing-password")'
+```
 
 Then, as the supervisor: register the RPM lanes under **RPM devices**, add a second supervisor
 (fee changes need a different approver), and add the operational staff.

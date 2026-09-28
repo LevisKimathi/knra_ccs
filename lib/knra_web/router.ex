@@ -17,7 +17,7 @@ defmodule KnraWeb.Router do
     plug :accepts, ["json"]
   end
 
-  pipeline :kentrade_api do
+  pipeline :api_client do
     plug KnraWeb.Plugs.ApiClientAuth
   end
 
@@ -46,10 +46,10 @@ defmodule KnraWeb.Router do
   # Health check used by deploy/deploy.sh (no session, no auth, no SSL redirect)
   get "/health", KnraWeb.HealthController, :show
 
-  ## Machine API for KenTrade (From + SHA-256 Authorization header, no session)
+  ## Container status API for registered API clients (From + SHA-256 Authorization header, no session)
 
-  scope "/api/kentrade", KnraWeb.Api do
-    pipe_through [:api, :kentrade_api]
+  scope "/api", KnraWeb.Api do
+    pipe_through [:api, :api_client]
 
     post "/container-status", ContainerStatusController, :create
   end
@@ -90,6 +90,7 @@ defmodule KnraWeb.Router do
       live "/admin/payments", Admin.PaymentsLive
       live "/admin/audit", Admin.AuditLive
       live "/admin/integrations", Admin.IntegrationsLive
+      live "/admin/api-clients", Admin.ApiClientsLive
 
       live "/simulator", SimulatorLive
     end

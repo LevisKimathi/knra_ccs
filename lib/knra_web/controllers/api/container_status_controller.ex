@@ -1,7 +1,8 @@
 defmodule KnraWeb.Api.ContainerStatusController do
   @moduledoc """
-  `POST /api/kentrade/container-status` — KenTrade asks for the KNRA screening
-  status of up to 100 containers at once.
+  `POST /api/container-status` — a registered API client (KenTrade, a shipping
+  line, a terminal operator, ...) asks for the KNRA screening status of up to 100
+  containers at once. Authentication: `KnraWeb.Plugs.ApiClientAuth`.
 
   Request: `[{"containerNumber": "MSKU7741293", "manifestNumber": "2026 1187"}, ...]`
   (`manifestNumber`, `billOfLadingNumber` and `ucrNumber` are optional and pin the
@@ -27,10 +28,10 @@ defmodule KnraWeb.Api.ContainerStatusController do
       results = StatusQuery.lookup(items)
 
       Integrations.record(%{
-        system: "kentrade_inbound",
+        system: "status_api",
         operation: "container_status",
         object_ref: items |> Enum.map_join(", ", &item_ref/1) |> String.slice(0, 250),
-        request: %{"items" => items},
+        request: %{"client" => conn.assigns.api_client.client_code, "items" => items},
         response: %{"items" => results},
         http_status: 200,
         outcome: "ok",
@@ -52,9 +53,9 @@ defmodule KnraWeb.Api.ContainerStatusController do
 
   defp error(conn, status, message, request) do
     Integrations.record(%{
-      system: "kentrade_inbound",
+      system: "status_api",
       operation: "container_status",
-      request: %{"body" => request},
+      request: %{"client" => conn.assigns.api_client.client_code, "body" => request},
       response: %{"status" => "INVALID_REQUEST", "message" => message},
       http_status: status,
       outcome: "invalid_request",

@@ -39,9 +39,6 @@ config :knra,
   # recent are reported (containers are reused across voyages)
   status_window_days: 60
 
-# Credentials KenTrade uses to call our container status API (set in runtime.exs)
-config :knra, :status_api, from: nil, username: nil, password: nil
-
 # KenTrade PGA Container Enquiry API. Credentials are read from the
 # environment in config/runtime.exs.
 config :knra, Knra.Integrations.KenTrade,

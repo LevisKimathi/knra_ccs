@@ -25,6 +25,7 @@ defmodule Knra.Release do
   ##     /srv/knra/current/bin/knra rpc 'Knra.Release.create_supervisor("l.njoroge@knra.go.ke", "Dr. L. Njoroge")'
   ##     /srv/knra/current/bin/knra rpc 'Knra.Release.seed_fee_schedule()'
   ##     /srv/knra/current/bin/knra rpc 'Knra.Release.seed_lanes()'
+  ##     /srv/knra/current/bin/knra rpc 'Knra.Release.create_api_client("Kenya Trade Network Agency", "KENTRADE", "kentrade")'
   ##
   ## Options: `station:` (default "KNRA HQ, Nairobi") and `password:`. With a
   ## password the account is created confirmed and ready for password login, and
@@ -161,6 +162,30 @@ defmodule Knra.Release do
       )
 
       :ok
+    end
+  end
+
+  @doc """
+  Registers an organisation for the container status API and prints its
+  credentials. Pass `password` to keep credentials already given to a partner;
+  otherwise one is generated. Normally done under Administration → API clients.
+  """
+  def create_api_client(name, client_code, username, password \\ nil) do
+    case Knra.ApiClients.create_client(
+           "System (bootstrap)",
+           %{"name" => name, "client_code" => client_code, "username" => username},
+           password
+         ) do
+      {:ok, client, pw} ->
+        IO.puts("API client #{client.name} registered.")
+        IO.puts("  From (client code): #{client.client_code}")
+        IO.puts("  Username:           #{client.username}")
+        if is_nil(password), do: IO.puts("  Password:           #{pw}  (not shown again)")
+        {:ok, client.id}
+
+      {:error, cs} ->
+        IO.puts("Not registered: #{inspect(cs.errors)}")
+        {:error, cs.errors}
     end
   end
 

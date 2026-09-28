@@ -54,8 +54,3 @@ config :knra, Knra.Integrations.KenTrade,
   password: "test-password",
   agency_code: "KNRA",
   mock: true
-
-config :knra, :status_api,
-  from: "KENTRADE",
-  username: "kentrade-test",
-  password: "test-status-password"

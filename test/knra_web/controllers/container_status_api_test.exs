@@ -7,18 +7,30 @@ defmodule KnraWeb.ContainerStatusApiTest do
   alias Knra.{Repo, Screening}
   alias Knra.Screening.Application
 
-  setup :setup_screening
+  setup ctx do
+    ctx = Map.merge(ctx, setup_screening())
 
-  @path "/api/kentrade/container-status"
+    {:ok, client, _} =
+      Knra.ApiClients.create_client(
+        ctx.supervisor,
+        %{
+          "name" => "Kenya Trade Network Agency",
+          "client_code" => "KENTRADE",
+          "username" => "kentrade-test"
+        },
+        "test-status-password"
+      )
 
-  defp authed(conn) do
-    token =
-      :crypto.hash(:sha256, "kentrade-test:test-status-password") |> Base.encode16(case: :lower)
+    Map.put(ctx, :api_client, client)
+  end
 
+  @path "/api/container-status"
+
+  defp authed(conn, code \\ "KENTRADE", user \\ "kentrade-test", pass \\ "test-status-password") do
     conn
     |> put_req_header("content-type", "application/json")
-    |> put_req_header("from", "KENTRADE")
-    |> put_req_header("authorization", "Basic " <> token)
+    |> put_req_header("from", code)
+    |> put_req_header("authorization", "Basic " <> Knra.ApiClients.token(user, pass))
   end
 
   defp query(conn, items),
@@ -190,9 +202,85 @@ defmodule KnraWeb.ContainerStatusApiTest do
                query(conn, [%{"container" => "x"}, %{"containerNumber" => "ABCU0000001"}])
     end
 
-    test "every call is logged", %{conn: conn} do
+    test "every call is logged against the calling client", %{conn: conn} do
       query(conn, [%{"containerNumber" => "ABCU0000001"}])
-      assert [%{system: "kentrade_inbound", outcome: "ok"} | _] = Knra.Integrations.list_logs()
+
+      assert [%{system: "status_api", outcome: "ok", request: %{"client" => "KENTRADE"}} | _] =
+               Knra.Integrations.list_logs()
+    end
+
+    test "the old /api/kentrade path is gone", %{conn: conn} do
+      assert conn |> authed() |> post("/api/kentrade/container-status", "[]") |> response(404)
+    end
+  end
+
+  describe "per-client credentials" do
+    test "each client uses its own credentials; one client's password does not work for another",
+         %{conn: conn} = ctx do
+      {:ok, _, pw} =
+        Knra.ApiClients.create_client(ctx.supervisor, %{
+          "name" => "Mombasa Terminal Operator",
+          "client_code" => "MTO",
+          "username" => "mto"
+        })
+
+      assert [%{"status" => "NOT_FOUND"}] =
+               conn
+               |> authed("MTO", "mto", pw)
+               |> post(@path, ~s([{"containerNumber":"ABCU0000001"}]))
+               |> json_response(200)
+
+      # KenTrade's password with MTO's code is refused
+      assert build_conn()
+             |> authed("MTO", "mto", "test-status-password")
+             |> post(@path, "[]")
+             |> response(401)
+    end
+
+    test "a revoked client is refused and can be restored", %{conn: conn} = ctx do
+      {:ok, _} = Knra.ApiClients.set_status(ctx.supervisor, ctx.api_client, "revoked")
+
+      assert conn
+             |> authed()
+             |> post(@path, ~s([{"containerNumber":"ABCU0000001"}]))
+             |> response(401)
+
+      {:ok, _} = Knra.ApiClients.set_status(ctx.supervisor, ctx.api_client, "active")
+
+      assert build_conn()
+             |> authed()
+             |> post(@path, ~s([{"containerNumber":"ABCU0000001"}]))
+             |> response(200)
+    end
+
+    test "a new password replaces the old one immediately", ctx do
+      {:ok, _, new_pw} = Knra.ApiClients.reset_credentials(ctx.supervisor, ctx.api_client)
+
+      assert build_conn() |> authed() |> post(@path, "[]") |> response(401)
+
+      assert build_conn()
+             |> authed("KENTRADE", "kentrade-test", new_pw)
+             |> post(@path, ~s([{"containerNumber":"ABCU0000001"}]))
+             |> response(200)
+    end
+
+    test "only a hash of the token is stored", ctx do
+      refute ctx.api_client.token_hash ==
+               Knra.ApiClients.token("kentrade-test", "test-status-password")
+
+      refute inspect(ctx.api_client) =~ ctx.api_client.token_hash
+    end
+
+    test "only supervisors and super admins manage clients", ctx do
+      assert {:error, :unauthorized} =
+               Knra.ApiClients.create_client(ctx.cas_operator, %{
+                 "name" => "X",
+                 "client_code" => "XX",
+                 "username" => "x"
+               })
+
+      assert {:error, :unauthorized} =
+               Knra.ApiClients.set_status(ctx.cas_operator, ctx.api_client, "revoked")
     end
   end
 end

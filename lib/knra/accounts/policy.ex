@@ -26,6 +26,7 @@ defmodule Knra.Accounts.Policy do
     manage_fees: ~w(supervisor),
     view_audit: ~w(supervisor),
     view_integrations: ~w(supervisor),
+    manage_api_clients: ~w(supervisor),
     simulate: ~w(cas_operator supervisor)
   }
 
@@ -34,9 +35,8 @@ defmodule Knra.Accounts.Policy do
   @doc """
   Returns true when the user in `scope` may perform `action`.
 
-  A super admin holds every permission. Per-record rules still apply on top of
-  this (a report's drafter cannot verify it; a fee proposal needs a different
-  approver), and only super admins may manage super admin accounts
+  A super admin holds every permission and is exempt from segregation of duties
+  (`segregation_exempt?/1`). Only super admins may manage super admin accounts
   (`manage_user?/2`).
   """
   def can?(%Scope{user: %User{status: "active", role: "super_admin"}}, action) do
@@ -48,6 +48,13 @@ defmodule Knra.Accounts.Policy do
   end
 
   def can?(_scope, _action), do: false
+
+  @doc """
+  Super admins may act as both maker and checker: verify a report they drafted
+  and approve their own fee proposal. Such actions are flagged in the audit trail.
+  """
+  def segregation_exempt?(%Scope{user: %User{status: "active", role: "super_admin"}}), do: true
+  def segregation_exempt?(_), do: false
 
   @doc "May `scope` create, edit, suspend or reset `target` (or give it `new_role`)?"
   def manage_user?(scope, %User{role: target_role}, new_role \\ nil) do

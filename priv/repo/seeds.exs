@@ -61,6 +61,19 @@ maker = scope.("a.kimani@knra.go.ke")
 checker = scope.("f.achieng@knra.go.ke")
 supervisor = scope.("l.njoroge@knra.go.ke")
 
+# ---- Container status API client for local testing
+# From: KENTRADE, token = sha256_hex("kentrade-dev:dev-status-password")
+{:ok, _, _} =
+  Knra.ApiClients.create_client(
+    supervisor,
+    %{
+      "name" => "Kenya Trade Network Agency (dev)",
+      "client_code" => "KENTRADE",
+      "username" => "kentrade-dev"
+    },
+    "dev-status-password"
+  )
+
 # ---- RPM lanes (M8)
 for {name, code, sn, type, cal, in_service, reason} <- [
       {"Lane 1", "RPM-MSA-01", "SN 8842-114", "PVT gamma + He-3", ~D[2026-12-12], true, nil},

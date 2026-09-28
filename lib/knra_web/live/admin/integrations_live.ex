@@ -24,7 +24,7 @@ defmodule KnraWeb.Admin.IntegrationsLive do
       <.page_header title="Integrations">
         <:subtitle>
           Outbound: KenTrade PGA Container Enquiry API, queried on every RPM pass with the OCR-read container number.
-          Inbound: KenTrade querying our container status API (<span class="font-mono">POST /api/kentrade/container-status</span>).
+          Inbound: registered API clients querying container status (<span class="font-mono">POST /api/container-status</span>).
           Every request and response is logged here for dispute resolution.
         </:subtitle>
       </.page_header>
@@ -77,7 +77,7 @@ defmodule KnraWeb.Admin.IntegrationsLive do
             prompt="Both directions"
             options={[
               {"Outbound — container enquiry", "kentrade"},
-              {"Inbound — status queries", "kentrade_inbound"}
+              {"Inbound — status API", "status_api"}
             ]}
           />
         </div>
@@ -110,7 +110,9 @@ defmodule KnraWeb.Admin.IntegrationsLive do
             <div class="font-mono text-xs text-muted">{Knra.Time.format(l.inserted_at)}</div>
             <div class="min-w-0">
               <div class="text-[11px] font-bold uppercase text-subtle">
-                {if l.system == "kentrade_inbound", do: "← Inbound", else: "→ Outbound"}
+                {if l.system in ["status_api", "kentrade_inbound"],
+                  do: "← Inbound #{l.request["client"]}",
+                  else: "→ Outbound"}
               </div>
               <div class="truncate font-mono text-xs">{l.object_ref}</div>
             </div>
@@ -173,7 +175,8 @@ defmodule KnraWeb.Admin.IntegrationsLive do
   defp outcome_tone("not_found"), do: :warn
   defp outcome_tone(_), do: :bad
 
-  defp log_message(%{system: "kentrade_inbound", response: %{"items" => items}}) do
+  defp log_message(%{system: system, response: %{"items" => items}})
+       when system in ["status_api", "kentrade_inbound"] do
     items
     |> Enum.frequencies_by(& &1["status"])
     |> Enum.map_join(" · ", fn {s, n} -> "#{n} #{s}" end)

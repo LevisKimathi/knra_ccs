@@ -121,7 +121,7 @@ defmodule KnraWeb.Admin.FeesLive do
             :if={s.status == "pending_approval"}
             class="border-t border-line-soft bg-panel px-5 py-3"
           >
-            <%= if s.created_by_id == @current_scope.user.id do %>
+            <%= if s.created_by_id == @current_scope.user.id and not Knra.Accounts.Policy.segregation_exempt?(@current_scope) do %>
               <p class="text-xs text-warn">
                 You proposed this change — another supervisor must approve it.
               </p>

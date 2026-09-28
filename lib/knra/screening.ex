@@ -478,14 +478,15 @@ defmodule Knra.Screening do
 
   @doc """
   Verification officer (checker) approves. Segregation of duties: the officer
-  who drafted the report can never approve it.
+  who drafted the report cannot approve it, unless they are a super admin
+  (recorded as an override in the audit trail).
   """
   def approve_report(scope, %Application{} = app) do
     with :ok <- Policy.authorize(scope, :verify_report) do
       transition(app, "report_check", fn app ->
         report = open_report!(app)
 
-        if report.maker_id == scope.user.id do
+        if report.maker_id == scope.user.id and not Policy.segregation_exempt?(scope) do
           {:error, :segregation_of_duties}
         else
           report
@@ -497,7 +498,15 @@ defmodule Knra.Screening do
           |> Repo.update!()
 
           app = set_stage!(app, "approved")
-          Audit.log(scope, :application, app.reference, "Screening report approved")
+
+          Audit.log(
+            scope,
+            :application,
+            app.reference,
+            "Screening report approved",
+            sod_override_note(report, scope)
+          )
+
           {:ok, maybe_clear!(app)}
         end
       end)
@@ -512,7 +521,7 @@ defmodule Knra.Screening do
         report = open_report!(app)
 
         cond do
-          report.maker_id == scope.user.id ->
+          report.maker_id == scope.user.id and not Policy.segregation_exempt?(scope) ->
             {:error, :segregation_of_duties}
 
           true ->
@@ -533,7 +542,9 @@ defmodule Knra.Screening do
                 :application,
                 app.reference,
                 "Report rejected and returned to the checking officer",
-                report.rejection_reason
+                [report.rejection_reason, sod_override_note(report, scope)]
+                |> Enum.reject(&is_nil/1)
+                |> Enum.join(" — ")
               )
 
               {:ok, app}
@@ -542,6 +553,11 @@ defmodule Knra.Screening do
       end)
     end
   end
+
+  defp sod_override_note(%Report{maker_id: id}, %{user: %{id: id}}),
+    do: "Drafted and verified by the same super administrator (segregation of duties overridden)"
+
+  defp sod_override_note(_report, _scope), do: nil
 
   defp open_report!(app) do
     Repo.one!(

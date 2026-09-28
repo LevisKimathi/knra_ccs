@@ -169,7 +169,8 @@ defmodule KnraWeb.Layouts do
         can.(:manage_fees) && item("fees", "Fee schedule", ~p"/admin/fees"),
         can.(:reconcile_payments) && item("payments", "Payments", ~p"/admin/payments"),
         can.(:view_audit) && item("audit", "Audit trail", ~p"/admin/audit"),
-        can.(:view_integrations) && item("integrations", "Integrations", ~p"/admin/integrations")
+        can.(:view_integrations) && item("integrations", "Integrations", ~p"/admin/integrations"),
+        can.(:manage_api_clients) && item("api_clients", "API clients", ~p"/admin/api-clients")
       ]
       |> Enum.filter(& &1)
 

@@ -570,7 +570,8 @@ defmodule KnraWeb.ApplicationLive.Show do
       )
       |> assign(
         :own_report,
-        report && report.status == "submitted" && report.maker_id == assigns.scope.user.id
+        report && report.status == "submitted" && report.maker_id == assigns.scope.user.id &&
+          not Policy.segregation_exempt?(assigns.scope)
       )
 
     ~H"""

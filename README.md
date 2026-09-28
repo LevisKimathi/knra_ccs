@@ -44,10 +44,12 @@ wait for a supervisor to reconcile them.
 
 One role per user: **CAS operator**, **field inspection officer**, **checking officer**,
 **verification officer**, **supervisor / administrator**, **super administrator**. A super admin
-holds every permission (including all workflow steps) and is the only role that can create or
-manage super admins; the drafter-cannot-verify and second-approver-for-fees rules still apply. Permissions are in
-`Knra.Accounts.Policy` and enforced inside every context function (not just the UI).
-The officer who drafted a report can never verify it, even if their role later changes.
+holds every permission (including all workflow steps), is the only role that can create or
+manage super admins, and is exempt from segregation of duties: they may verify a report they
+drafted and approve their own fee proposal. Each such override is noted in the audit trail.
+Permissions are in `Knra.Accounts.Policy` and enforced inside every context function (not just
+the UI). For every other role, the officer who drafted a report can never verify it, even if their
+role later changes, and a fee proposal needs a different supervisor to approve it.
 
 There is no self-registration. A supervisor creates accounts under *Users & roles*; the
 user receives an email link, logs in, and sets a password under *Settings*.
@@ -71,11 +73,14 @@ mix test
 mix precommit      # compile with warnings as errors, format, test
 ```
 
-## Container status API (for KenTrade)
+## Container status API
 
-`POST /api/kentrade/container-status` — up to 100 containers per call. Authentication mirrors
-KenTrade's own API: `From: <STATUS_API_FROM>` and
-`Authorization: Basic <sha256_hex("STATUS_API_USERNAME:STATUS_API_PASSWORD")>`.
+`POST /api/container-status` — up to 100 containers per call, for any registered API client
+(KenTrade, shipping lines, terminal operators, ...). Clients are managed under
+*Administration → API clients*: each has its own client code, username and generated password,
+and can be revoked or given a new password on its own. Authentication: `From: <client code>` and
+`Authorization: Basic <sha256_hex("username:password")>`. Only a hash of each token is stored, and
+every call is logged against the calling client under *Integrations*.
 
 ```json
 [
@@ -116,7 +121,6 @@ KenTrade PGA Container Enquiry API (`config/runtime.exs`):
 | `KENTRADE_USERNAME` / `KENTRADE_PASSWORD` | Sent as `Authorization: Basic <sha256_hex("username:password")>` |
 | `KENTRADE_AGENCY_CODE` | Sent in the `From` header |
 | `KENTRADE_MOCK` | `true` serves lookups from the built-in mock (the default in dev) |
-| `STATUS_API_FROM` / `STATUS_API_USERNAME` / `STATUS_API_PASSWORD` | Credentials KenTrade uses to call our container status API |
 | `STATUS_WINDOW_DAYS` | Container-only status queries ignore screenings older than this (default 60) |
 
 Other settings:

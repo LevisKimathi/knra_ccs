@@ -22,7 +22,7 @@ defmodule Knra.SuperAdminTest do
     for p <- Policy.permissions(), do: assert(Policy.can?(admin, p), "missing #{p}")
   end
 
-  test "can run every workflow step, but still cannot verify a report they drafted", ctx do
+  test "can act as both checking and verification officer; the override is audited", ctx do
     admin = ctx.super_admin
     app = rpm_pass("TGHU5029184", true)
 
@@ -36,11 +36,36 @@ defmodule Knra.SuperAdminTest do
     {:ok, _} =
       Screening.submit_report(admin, app, %{"narrative" => "Released after adjudication."})
 
-    assert {:error, :segregation_of_duties} = Screening.approve_report(admin, app)
-    assert {:ok, %{stage: "approved"}} = Screening.approve_report(ctx.verification_officer, app)
+    assert {:ok, %{stage: "approved"}} = Screening.approve_report(admin, app)
+
+    approval =
+      app |> Screening.timeline() |> Enum.find(&(&1.action == "Screening report approved"))
+
+    assert approval.note =~ "segregation of duties overridden"
+
+    # A normal verification officer approving someone else's report gets no override note
+    other = rpm_pass("MSKU7741293")
+
+    {:ok, _} =
+      Screening.submit_report(ctx.checking_officer, other, %{"narrative" => "Clear pass."})
+
+    {:ok, _} = Screening.approve_report(ctx.verification_officer, other)
+
+    normal =
+      other |> Screening.timeline() |> Enum.find(&(&1.action == "Screening report approved"))
+
+    assert is_nil(normal.note)
   end
 
-  test "cannot approve their own fee proposal", %{super_admin: admin} do
+  test "can reject a report they drafted", ctx do
+    app = rpm_pass("MSKU7741293")
+    {:ok, _} = Screening.submit_report(ctx.super_admin, app, %{"narrative" => "Clear pass."})
+
+    assert {:ok, %{stage: "report_draft"}} =
+             Screening.reject_report(ctx.super_admin, app, %{"rejection_reason" => "Add lane"})
+  end
+
+  test "can approve their own fee proposal; the override is audited", %{super_admin: admin} do
     {:ok, s} =
       Billing.propose_fee_schedule(admin, %{
         "effective_from" => Date.to_iso8601(Date.add(Knra.Time.today(), 1)),
@@ -55,7 +80,38 @@ defmodule Knra.SuperAdminTest do
         }
       })
 
-    assert {:error, :segregation_of_duties} = Billing.approve_fee_schedule(admin, s)
+    assert {:ok, %{status: "approved"}} = Billing.approve_fee_schedule(admin, s)
+    [entry | _] = Knra.Audit.search(%{"object_type" => "fee_schedule", "q" => "approved"})
+    assert entry.note =~ "segregation of duties overridden"
+  end
+
+  test "supervisors are still bound by segregation of duties", ctx do
+    {:ok, s} =
+      Billing.propose_fee_schedule(ctx.supervisor, %{
+        "effective_from" => Date.to_iso8601(Date.add(Knra.Time.today(), 1)),
+        "note" => "Gazette 3",
+        "items" => %{
+          "0" => %{
+            "code" => "screening",
+            "description" => "Screening",
+            "amount_usd" => "25",
+            "amount_kes" => "3250"
+          }
+        }
+      })
+
+    assert {:error, :segregation_of_duties} = Billing.approve_fee_schedule(ctx.supervisor, s)
+  end
+
+  test "the report screen offers approval on a super admin's own report", ctx do
+    app = rpm_pass("MSKU7741293")
+    {:ok, _} = Screening.submit_report(ctx.super_admin, app, %{"narrative" => "Clear pass."})
+
+    {:ok, lv, _} =
+      live(log_in_user(ctx.conn, ctx.super_admin.user), ~p"/applications/#{app.reference}")
+
+    assert has_element?(lv, "#approve-report")
+    refute render(lv) =~ "another verification officer must approve it"
   end
 
   describe "super admin accounts are protected from supervisors" do
