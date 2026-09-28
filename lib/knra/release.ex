@@ -24,6 +24,7 @@ defmodule Knra.Release do
   ##     /srv/knra/current/bin/knra rpc 'Knra.Release.create_super_admin("admin@knra.go.ke", "System Admin", password: "at-least-12-chars")'
   ##     /srv/knra/current/bin/knra rpc 'Knra.Release.create_supervisor("l.njoroge@knra.go.ke", "Dr. L. Njoroge")'
   ##     /srv/knra/current/bin/knra rpc 'Knra.Release.seed_fee_schedule()'
+  ##     /srv/knra/current/bin/knra rpc 'Knra.Release.seed_lanes()'
   ##
   ## Options: `station:` (default "KNRA HQ, Nairobi") and `password:`. With a
   ## password the account is created confirmed and ready for password login, and
@@ -161,6 +162,85 @@ defmodule Knra.Release do
 
       :ok
     end
+  end
+
+  @default_lanes [
+    %{
+      name: "Lane 1",
+      device_code: "RPM-MSA-01",
+      serial_number: "SN 8842-114",
+      detector_type: "PVT gamma + He-3",
+      terminal: "KOT",
+      calibration_due_on: ~D[2026-12-12]
+    },
+    %{
+      name: "Lane 2",
+      device_code: "RPM-MSA-02",
+      serial_number: "SN 8842-115",
+      detector_type: "PVT gamma + He-3",
+      terminal: "KOT",
+      calibration_due_on: ~D[2026-12-12]
+    },
+    %{
+      name: "Lane 3",
+      device_code: "RPM-MSA-03",
+      serial_number: "SN 8842-116",
+      detector_type: "PVT gamma + He-3",
+      terminal: "KOT",
+      calibration_due_on: ~D[2026-10-20]
+    },
+    %{
+      name: "Lane 4",
+      device_code: "RPM-MSA-04",
+      serial_number: "SN 8842-117",
+      detector_type: "NaI spectroscopic",
+      terminal: "KOT",
+      calibration_due_on: ~D[2027-02-02]
+    }
+  ]
+
+  @doc """
+  Registers the Port of Mombasa RPM lanes (from the reviewed demo), all in
+  service. Lanes whose device code or name already exists are skipped, so it is
+  safe to run again. Correct serials and calibration dates under RPM devices.
+  Pass your own list of maps (same keys) to register different devices.
+  """
+  def seed_lanes(lanes \\ @default_lanes) do
+    alias Knra.Devices.Lane
+    import Ecto.Query
+
+    results =
+      for attrs <- lanes do
+        exists? =
+          Knra.Repo.exists?(
+            from l in Lane, where: l.device_code == ^attrs.device_code or l.name == ^attrs.name
+          )
+
+        if exists? do
+          IO.puts("skipped  #{attrs.name} (#{attrs.device_code}) — already registered")
+          :skipped
+        else
+          case %Lane{} |> Lane.changeset(attrs) |> Knra.Repo.insert() do
+            {:ok, lane} ->
+              Knra.Audit.log(
+                "System (bootstrap)",
+                :device,
+                lane.device_code,
+                "Device registered on #{lane.name}",
+                lane.serial_number
+              )
+
+              IO.puts("added    #{lane.name} (#{lane.device_code}, #{lane.detector_type})")
+              :added
+
+            {:error, cs} ->
+              IO.puts("failed   #{attrs.name}: #{inspect(cs.errors)}")
+              :failed
+          end
+        end
+      end
+
+    Enum.frequencies(results)
   end
 
   defp repos do

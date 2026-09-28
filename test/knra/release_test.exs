@@ -42,4 +42,15 @@ defmodule Knra.ReleaseTest do
     assert_email_sent(to: [{"", "sup@knra.test"}])
     assert Accounts.get_user_by_email("sup@knra.test").role == "supervisor"
   end
+
+  test "seed_lanes registers the four lanes once and is safe to re-run" do
+    assert {%{added: 4}, _} = with_io(&Release.seed_lanes/0)
+    assert {%{skipped: 4}, out} = with_io(&Release.seed_lanes/0)
+    assert out =~ "already registered"
+
+    lanes = Knra.Devices.list_lanes()
+    assert Enum.map(lanes, & &1.device_code) == ~w(RPM-MSA-01 RPM-MSA-02 RPM-MSA-03 RPM-MSA-04)
+    assert Enum.all?(lanes, & &1.in_service)
+    assert [_ | _] = Knra.Audit.search(%{"object_type" => "device"})
+  end
 end
