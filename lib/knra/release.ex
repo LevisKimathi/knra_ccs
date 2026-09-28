@@ -21,55 +21,85 @@ defmodule Knra.Release do
   ## First-deploy bootstrap. Run against the running release, e.g.
   ##
   ##     /srv/knra/current/bin/knra rpc 'Knra.Release.create_super_admin("admin@knra.go.ke", "System Admin")'
+  ##     /srv/knra/current/bin/knra rpc 'Knra.Release.create_super_admin("admin@knra.go.ke", "System Admin", password: "at-least-12-chars")'
   ##     /srv/knra/current/bin/knra rpc 'Knra.Release.create_supervisor("l.njoroge@knra.go.ke", "Dr. L. Njoroge")'
   ##     /srv/knra/current/bin/knra rpc 'Knra.Release.seed_fee_schedule()'
+  ##
+  ## Options: `station:` (default "KNRA HQ, Nairobi") and `password:`. With a
+  ## password the account is created confirmed and ready for password login, and
+  ## no email is sent (for servers without a mailer). Without one, a login link is
+  ## printed and emailed.
 
-  @doc """
-  Creates a supervisor account (there is no self-registration) and emails a
-  login link. Further staff are then added from Users & roles.
-  """
-  def create_supervisor(email, name, station \\ "KNRA HQ, Nairobi") do
-    create_admin(email, name, station, "supervisor")
+  @doc "Creates a supervisor account (there is no self-registration)."
+  def create_supervisor(email, name, opts \\ []) do
+    create_admin(email, name, "supervisor", opts)
   end
 
   @doc """
   Creates a super admin (every permission, and the only role that can manage
-  other super admins) and emails a login link. Only possible from the server
-  console or by another super admin.
+  other super admins). Only possible from the server console or by another
+  super admin.
   """
-  def create_super_admin(email, name, station \\ "KNRA HQ, Nairobi") do
-    create_admin(email, name, station, "super_admin")
+  def create_super_admin(email, name, opts \\ []) do
+    create_admin(email, name, "super_admin", opts)
   end
 
-  defp create_admin(email, name, station, role) do
+  defp create_admin(email, name, role, opts) do
     alias Knra.Accounts.User
 
-    result =
+    password = opts[:password]
+    station = opts[:station] || "KNRA HQ, Nairobi"
+
+    changeset =
       %User{}
       |> User.admin_changeset(%{email: email, name: name, role: role, station: station})
-      |> Knra.Repo.insert()
+      |> then(fn cs ->
+        if password,
+          do:
+            cs
+            |> User.password_changeset(%{password: password})
+            |> Ecto.Changeset.put_change(:confirmed_at, DateTime.utc_now(:second)),
+          else: cs
+      end)
 
-    case result do
+    case Knra.Repo.insert(changeset) do
       {:ok, user} ->
         Knra.Audit.log(
           "System (bootstrap)",
           :user,
           user.email,
-          "#{User.role_label(role)} account created from the server console"
+          "#{User.role_label(role)} account created from the server console",
+          if(password, do: "Created with a password (no login email)")
         )
 
-        Knra.Accounts.deliver_login_instructions(user, fn token ->
-          url = KnraWeb.Endpoint.url() <> KnraWeb.Endpoint.path("/users/log-in/" <> token)
-          IO.puts("Login link (valid 15 minutes, also emailed): #{url}")
-          url
-        end)
+        if password do
+          IO.puts(
+            "Created #{user.email}. Log in at #{KnraWeb.Endpoint.url() <> KnraWeb.Endpoint.path("/users/log-in")} with the password you set."
+          )
+        else
+          Knra.Accounts.deliver_login_instructions(user, fn token ->
+            url = KnraWeb.Endpoint.url() <> KnraWeb.Endpoint.path("/users/log-in/" <> token)
+            IO.puts("Login link (valid 15 minutes, also emailed): #{url}")
+            url
+          end)
 
-        IO.puts("Created #{user.email}.")
+          IO.puts("Created #{user.email}.")
+        end
+
         {:ok, user.id}
 
       {:error, cs} ->
-        IO.puts("Not created: #{inspect(cs.errors)}")
-        {:error, cs.errors}
+        errors =
+          cs
+          |> Ecto.Changeset.traverse_errors(fn {msg, opts} ->
+            Regex.replace(~r/%{(\w+)}/, msg, fn _, key ->
+              opts |> Keyword.get(String.to_existing_atom(key), key) |> to_string()
+            end)
+          end)
+          |> Enum.flat_map(fn {field, msgs} -> Enum.map(msgs, &"#{field} #{&1}") end)
+
+        IO.puts("Not created: #{Enum.join(errors, "; ")}")
+        {:error, errors}
     end
   end
 

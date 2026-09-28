@@ -78,6 +78,9 @@ The production database starts empty (seeds are for development only):
 # First super admin — prints a login link (valid 15 min) and emails it; add everyone else from Users & roles
 /srv/knra/current/bin/knra rpc 'Knra.Release.create_super_admin("admin@knra.go.ke", "System Admin")'
 
+# No mail server yet? Create it with a password instead (confirmed, no email; min 12 characters)
+/srv/knra/current/bin/knra rpc 'Knra.Release.create_super_admin("admin@knra.go.ke", "System Admin", password: "change-me-after-login")'
+
 # (or a supervisor directly)
 /srv/knra/current/bin/knra rpc 'Knra.Release.create_supervisor("l.njoroge@knra.go.ke", "Dr. L. Njoroge")'
 
