@@ -8,7 +8,7 @@ defmodule KnraWeb.Admin.UsersLive do
   on_mount {KnraWeb.LiveHooks, {:authorize, :manage_users}}
 
   alias Knra.Accounts
-  alias Knra.Accounts.User
+  alias Knra.Accounts.{Policy, User}
 
   @cols "1fr 190px 190px 130px 110px 230px"
 
@@ -38,7 +38,12 @@ defmodule KnraWeb.Admin.UsersLive do
             <.input field={@form[:name]} label="Full name" />
             <.input field={@form[:email]} type="email" label="Email" />
             <.input field={@form[:staff_number]} label="Staff number" />
-            <.input field={@form[:role]} type="select" label="Role" options={User.role_options()} />
+            <.input
+              field={@form[:role]}
+              type="select"
+              label="Role"
+              options={User.assignable_role_options(@current_scope.user)}
+            />
             <.input
               field={@form[:station]}
               label="Duty station"
@@ -100,7 +105,10 @@ defmodule KnraWeb.Admin.UsersLive do
             <.pill tone={status_tone(u.status)}>{String.capitalize(u.status)}</.pill>
             <div :if={is_nil(u.confirmed_at)} class="mt-1 text-xs text-subtle">Invite pending</div>
           </div>
-          <div :if={u.id != @current_scope.user.id} class="flex flex-wrap justify-end gap-1.5">
+          <div
+            :if={u.id != @current_scope.user.id and Policy.manage_user?(@current_scope, u)}
+            class="flex flex-wrap justify-end gap-1.5"
+          >
             <.link patch={~p"/admin/users/#{u.id}/edit"} class={btn(:secondary, :sm)}>Edit</.link>
             <button
               :if={u.status == "active"}
@@ -142,6 +150,12 @@ defmodule KnraWeb.Admin.UsersLive do
             </button>
           </div>
           <div :if={u.id == @current_scope.user.id} class="text-right text-xs text-subtle">You</div>
+          <div
+            :if={u.id != @current_scope.user.id and not Policy.manage_user?(@current_scope, u)}
+            class="text-right text-xs text-subtle"
+          >
+            Managed by super admins
+          </div>
         </div>
       </.card>
     </Layouts.app>
@@ -165,7 +179,14 @@ defmodule KnraWeb.Admin.UsersLive do
 
   defp apply_action(socket, :edit, %{"id" => id}) do
     user = Accounts.get_user!(id)
-    assign(socket, user: user, form: to_form(Accounts.change_user_admin(user)))
+
+    if Policy.manage_user?(socket.assigns.current_scope, user) do
+      assign(socket, user: user, form: to_form(Accounts.change_user_admin(user)))
+    else
+      socket
+      |> put_flash(:error, "Only a super admin can edit this account.")
+      |> push_patch(to: ~p"/admin/users")
+    end
   end
 
   defp apply_action(socket, :index, _params), do: assign(socket, user: nil, form: nil)

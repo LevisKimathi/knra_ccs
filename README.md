@@ -43,7 +43,9 @@ wait for a supervisor to reconcile them.
 ## Roles
 
 One role per user: **CAS operator**, **field inspection officer**, **checking officer**,
-**verification officer**, **supervisor / administrator**. Permissions are in
+**verification officer**, **supervisor / administrator**, **super administrator**. A super admin
+holds every permission (including all workflow steps) and is the only role that can create or
+manage super admins; the drafter-cannot-verify and second-approver-for-fees rules still apply. Permissions are in
 `Knra.Accounts.Policy` and enforced inside every context function (not just the UI).
 The officer who drafted a report can never verify it, even if their role later changes.
 

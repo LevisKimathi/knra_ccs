@@ -75,15 +75,18 @@ service and waits for `/health`. On failure it prints the rollback command.
 The production database starts empty (seeds are for development only):
 
 ```bash
-# First supervisor — prints a login link (valid 15 min) and emails it; add other staff from Users & roles
+# First super admin — prints a login link (valid 15 min) and emails it; add everyone else from Users & roles
+/srv/knra/current/bin/knra rpc 'Knra.Release.create_super_admin("admin@knra.go.ke", "System Admin")'
+
+# (or a supervisor directly)
 /srv/knra/current/bin/knra rpc 'Knra.Release.create_supervisor("l.njoroge@knra.go.ke", "Dr. L. Njoroge")'
 
 # Gazetted fee schedule v1 (invoices cannot be raised without an approved schedule)
 /srv/knra/current/bin/knra rpc 'Knra.Release.seed_fee_schedule()'
 ```
 
-`bin/knra rpc` needs the env file loaded when run by hand:
-`set -a; . /etc/knra/knra.env; set +a` first.
+Run these with `bin/knra` (not `bin/server`, which always starts a new node), with the env file
+loaded first: `cd /srv/knra/current && set -a && . /etc/knra/knra.env && set +a`.
 
 Then, as the supervisor: register the RPM lanes under **RPM devices**, add a second supervisor
 (fee changes need a different approver), and add the operational staff.

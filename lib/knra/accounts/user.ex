@@ -2,7 +2,7 @@ defmodule Knra.Accounts.User do
   use Ecto.Schema
   import Ecto.Changeset
 
-  @roles ~w(cas_operator field_officer checking_officer verification_officer supervisor)
+  @roles ~w(cas_operator field_officer checking_officer verification_officer supervisor super_admin)
   @statuses ~w(active suspended deactivated)
 
   schema "users" do
@@ -29,11 +29,18 @@ defmodule Knra.Accounts.User do
     "field_officer" => "Field inspection officer",
     "checking_officer" => "Checking officer",
     "verification_officer" => "Verification officer",
-    "supervisor" => "Supervisor / administrator"
+    "supervisor" => "Supervisor / administrator",
+    "super_admin" => "Super administrator"
   }
 
   def role_label(role), do: Map.get(@role_labels, role, role)
   def role_options, do: Enum.map(@roles, &{role_label(&1), &1})
+
+  @doc "Roles a user may assign: only super admins can create or promote super admins."
+  def assignable_role_options(%__MODULE__{role: "super_admin"}), do: role_options()
+
+  def assignable_role_options(_),
+    do: @roles |> Enum.reject(&(&1 == "super_admin")) |> Enum.map(&{role_label(&1), &1})
 
   def active?(%__MODULE__{status: "active"}), do: true
   def active?(_), do: false

@@ -148,6 +148,14 @@ defmodule KnraWeb.Layouts do
             item("reports", "Screening reports", ~p"/reports")
           ]
 
+        "super_admin" ->
+          [
+            item("lanes", "Lane overview", ~p"/cas/lanes"),
+            item("alarms", "Alarm queue", ~p"/cas/alarms"),
+            item("inspections", "Secondary inspections", ~p"/inspections"),
+            item("reports", "Screening reports", ~p"/reports")
+          ]
+
         _ ->
           []
       end

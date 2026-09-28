@@ -31,12 +31,30 @@ defmodule Knra.Accounts.Policy do
 
   def permissions, do: Map.keys(@permissions)
 
-  @doc "Returns true when the user in `scope` may perform `action`."
+  @doc """
+  Returns true when the user in `scope` may perform `action`.
+
+  A super admin holds every permission. Per-record rules still apply on top of
+  this (a report's drafter cannot verify it; a fee proposal needs a different
+  approver), and only super admins may manage super admin accounts
+  (`manage_user?/2`).
+  """
+  def can?(%Scope{user: %User{status: "active", role: "super_admin"}}, action) do
+    action in Map.keys(@permissions)
+  end
+
   def can?(%Scope{user: %User{status: "active", role: role}}, action) do
     role in Map.get(@permissions, action, [])
   end
 
   def can?(_scope, _action), do: false
+
+  @doc "May `scope` create, edit, suspend or reset `target` (or give it `new_role`)?"
+  def manage_user?(scope, %User{role: target_role}, new_role \\ nil) do
+    can?(scope, :manage_users) and
+      (scope.user.role == "super_admin" or
+         "super_admin" not in [target_role, new_role])
+  end
 
   def authorize(scope, action) do
     if can?(scope, action), do: :ok, else: {:error, :unauthorized}

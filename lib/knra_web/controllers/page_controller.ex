@@ -10,6 +10,7 @@ defmodule KnraWeb.PageController do
         "checking_officer" -> ~p"/reports"
         "verification_officer" -> ~p"/reports"
         "supervisor" -> ~p"/cas/lanes"
+        "super_admin" -> ~p"/cas/lanes"
         _ -> ~p"/applications"
       end
 

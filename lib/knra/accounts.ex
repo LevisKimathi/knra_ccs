@@ -119,7 +119,7 @@ defmodule Knra.Accounts do
   confirms the account and logs them in; they then set a password.
   """
   def create_user(scope, attrs, magic_link_url_fun) do
-    with :ok <- Policy.authorize(scope, :manage_users) do
+    with :ok <- authorize_manage(scope, %User{}, requested_role(attrs)) do
       Repo.transact(fn ->
         with {:ok, user} <- %User{} |> User.admin_changeset(attrs) |> Repo.insert() do
           Audit.log(
@@ -142,7 +142,7 @@ defmodule Knra.Accounts do
 
   @doc "Supervisor edits name, role, staff number or duty station. A role change ends the user's sessions."
   def update_user(scope, %User{} = user, attrs) do
-    with :ok <- Policy.authorize(scope, :manage_users) do
+    with :ok <- authorize_manage(scope, user, requested_role(attrs)) do
       changeset = User.admin_changeset(user, attrs)
 
       Repo.transact(fn ->
@@ -166,7 +166,7 @@ defmodule Knra.Accounts do
 
   @doc "Sets an account's status (active / suspended / deactivated). Suspending ends all sessions."
   def set_user_status(scope, %User{} = user, status, reason \\ nil) do
-    with :ok <- Policy.authorize(scope, :manage_users),
+    with :ok <- authorize_manage(scope, user),
          :ok <- if(user.id == scope.user.id, do: {:error, :cannot_change_self}, else: :ok) do
       Repo.transact(fn ->
         with {:ok, updated} <- user |> User.status_changeset(status) |> Repo.update() do
@@ -180,7 +180,7 @@ defmodule Knra.Accounts do
 
   @doc "Forces a password reset: clears the password, ends sessions and emails a login link."
   def force_password_reset(scope, %User{} = user, magic_link_url_fun) do
-    with :ok <- Policy.authorize(scope, :manage_users) do
+    with :ok <- authorize_manage(scope, user) do
       Repo.transact(fn ->
         updated = user |> Ecto.Changeset.change(hashed_password: nil) |> Repo.update!()
         Audit.log(scope, :user, user.email, "Password reset forced")
@@ -192,6 +192,13 @@ defmodule Knra.Accounts do
       end)
     end
   end
+
+  # Supervisors manage staff; only super admins may touch super admin accounts.
+  defp authorize_manage(scope, target, new_role \\ nil) do
+    if Policy.manage_user?(scope, target, new_role), do: :ok, else: {:error, :unauthorized}
+  end
+
+  defp requested_role(attrs), do: attrs["role"] || attrs[:role]
 
   def touch_last_active(%User{id: id}) do
     Repo.update_all(from(u in User, where: u.id == ^id),

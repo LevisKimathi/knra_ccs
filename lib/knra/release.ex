@@ -20,6 +20,7 @@ defmodule Knra.Release do
 
   ## First-deploy bootstrap. Run against the running release, e.g.
   ##
+  ##     /srv/knra/current/bin/knra rpc 'Knra.Release.create_super_admin("admin@knra.go.ke", "System Admin")'
   ##     /srv/knra/current/bin/knra rpc 'Knra.Release.create_supervisor("l.njoroge@knra.go.ke", "Dr. L. Njoroge")'
   ##     /srv/knra/current/bin/knra rpc 'Knra.Release.seed_fee_schedule()'
 
@@ -28,11 +29,24 @@ defmodule Knra.Release do
   login link. Further staff are then added from Users & roles.
   """
   def create_supervisor(email, name, station \\ "KNRA HQ, Nairobi") do
+    create_admin(email, name, station, "supervisor")
+  end
+
+  @doc """
+  Creates a super admin (every permission, and the only role that can manage
+  other super admins) and emails a login link. Only possible from the server
+  console or by another super admin.
+  """
+  def create_super_admin(email, name, station \\ "KNRA HQ, Nairobi") do
+    create_admin(email, name, station, "super_admin")
+  end
+
+  defp create_admin(email, name, station, role) do
     alias Knra.Accounts.User
 
     result =
       %User{}
-      |> User.admin_changeset(%{email: email, name: name, role: "supervisor", station: station})
+      |> User.admin_changeset(%{email: email, name: name, role: role, station: station})
       |> Knra.Repo.insert()
 
     case result do
@@ -41,7 +55,7 @@ defmodule Knra.Release do
           "System (bootstrap)",
           :user,
           user.email,
-          "Supervisor account created from the server console"
+          "#{User.role_label(role)} account created from the server console"
         )
 
         Knra.Accounts.deliver_login_instructions(user, fn token ->
