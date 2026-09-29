@@ -10,7 +10,16 @@ defmodule KnraWeb.SimulatorLive do
 
   import Ecto.Query
   alias Knra.{Devices, Repo, Screening, Simulator}
+  alias Knra.Simulator.Batch
   alias Knra.Billing.Invoice
+
+  @batch_placeholder """
+  MRKU9937602 CLEARED
+  INBU5333934 DETAINED
+  MRKU2415627 IN_PROGRESS
+  MSKU2728942 NOT_FOUND
+  PONU8264392\
+  """
 
   @impl true
   def render(assigns) do
@@ -101,6 +110,83 @@ defmodule KnraWeb.SimulatorLive do
           </.form>
         </.card>
       </div>
+
+      <.card title="Stage Containers in Bulk" class="mt-5">
+        <p class="mb-3 text-xs leading-relaxed text-muted">
+          Paste container numbers (e.g. from KenTrade), one per line, each optionally followed by the
+          status the container status API should answer: <span class="font-mono">CLEARED, DETAINED, IN_PROGRESS, NOT_FOUND</span>. Each container gets an
+          RPM pass and is walked through the real workflow to that status; NOT_FOUND only checks it has
+          no screening. To hold an IN_PROGRESS container at a particular step, give the step instead
+          (<span class="font-mono">alarm, secondary, report_check, awaiting_payment</span>).
+          Needs a super admin, because it performs every role's step.
+        </p>
+        <.form for={@batch_form} id="batch-form" phx-submit="stage_batch">
+          <div class="grid gap-x-4 lg:grid-cols-[2fr_1fr]">
+            <.input
+              field={@batch_form[:text]}
+              type="textarea"
+              rows="8"
+              label="Containers"
+              placeholder={@batch_placeholder}
+            />
+            <div>
+              <.input
+                field={@batch_form[:default]}
+                type="select"
+                label="Status for containers listed without one"
+                options={[
+                  {"Spread across all four statuses", "spread"}
+                  | Enum.map(Batch.spread_order(), &{Batch.target_label(&1), &1})
+                ]}
+              />
+              <button type="submit" class={btn(:primary)} phx-disable-with="Staging…">
+                Stage containers
+              </button>
+            </div>
+          </div>
+        </.form>
+
+        <div :if={@batch_results != []} id="batch-results" class="mt-5 overflow-x-auto">
+          <table class="w-full text-left text-[13px]">
+            <thead class="text-xs text-muted">
+              <tr class="border-b border-line">
+                <th class="py-2 pr-4">Container</th>
+                <th class="py-2 pr-4">Target</th>
+                <th class="py-2 pr-4">Result</th>
+                <th class="py-2 pr-4">Status API answer</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr :for={r <- @batch_results} class="border-b border-line-soft last:border-0">
+                <td class="py-2 pr-4"><.container_no number={r.container} /></td>
+                <td class="py-2 pr-4 text-xs">{Batch.target_label(r.target)}</td>
+                <td class="py-2 pr-4">
+                  <%= case r.result do %>
+                    <% :not_screened -> %>
+                      <span class="text-xs text-muted">No screening</span>
+                    <% {:error, reason} -> %>
+                      <span class="text-xs text-bad">{Batch.error_message(reason)}</span>
+                    <% {_, app} -> %>
+                      <.link
+                        navigate={~p"/applications/#{app.reference}"}
+                        class="font-mono text-xs text-brand"
+                      >
+                        {app.reference}
+                      </.link>
+                      <.stage_badge stage={app.stage} />
+                      <span :if={elem(r.result, 0) == :unchanged} class="text-xs text-muted">
+                        (already there)
+                      </span>
+                  <% end %>
+                </td>
+                <td class="py-2 pr-4 font-mono text-xs">
+                  {r.api["status"]}<span :if={r.api["stage"]} class="text-muted"> · {r.api["stage"]}</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </.card>
     </Layouts.app>
     """
   end
@@ -114,6 +200,9 @@ defmodule KnraWeb.SimulatorLive do
        :rpm_form,
        to_form(%{"container" => "", "lane" => "auto", "alarm" => "false"}, as: :rpm)
      )
+     |> assign(:batch_form, to_form(%{"text" => "", "default" => "spread"}, as: :batch))
+     |> assign(:batch_results, [])
+     |> assign(:batch_placeholder, @batch_placeholder)
      |> assign(
        :pay_form,
        to_form(%{"account" => "", "amount" => "2600", "msisdn" => "254712345678"}, as: :pay)
@@ -143,6 +232,27 @@ defmodule KnraWeb.SimulatorLive do
          socket
          |> put_flash(:error, Screening.error_message(reason))
          |> assign(:rpm_form, to_form(p, as: :rpm))}
+    end
+  end
+
+  def handle_event("stage_batch", %{"batch" => p}, socket) do
+    socket = assign(socket, :batch_form, to_form(p, as: :batch))
+
+    case Batch.run(socket.assigns.current_scope, p["text"], default: p["default"]) do
+      {:ok, results} ->
+        failed = Enum.count(results, &match?({:error, _}, &1.result))
+
+        {:noreply,
+         socket
+         |> assign(:batch_results, results)
+         |> put_flash(
+           if(failed == 0, do: :info, else: :error),
+           "#{length(results) - failed} of #{length(results)} containers staged."
+         )
+         |> load()}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, Batch.error_message(reason))}
     end
   end
 

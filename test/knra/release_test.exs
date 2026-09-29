@@ -53,4 +53,18 @@ defmodule Knra.ReleaseTest do
     assert Enum.all?(lanes, & &1.in_service)
     assert [_ | _] = Knra.Audit.search(%{"object_type" => "device"})
   end
+
+  test "simulate_statuses stages containers as the first super admin and prints a table" do
+    Knra.ScreeningFixtures.setup_screening()
+    Knra.AccountsFixtures.user_fixture(%{role: "super_admin", name: "Root"})
+
+    {result, out} =
+      with_io(fn ->
+        Release.simulate_statuses("MRKU9937602 cleared, INBU5333934", default: "alarm")
+      end)
+
+    assert result == {:ok, 2, 0}
+    assert out =~ ~r/MRKU9937602\s+CLEARED\s+CLEARED/
+    assert out =~ ~r/INBU5333934\s+IN_PROGRESS\/Alarm.*\s+IN_PROGRESS\/ALARM_ADJUDICATION/
+  end
 end

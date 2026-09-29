@@ -26,6 +26,7 @@ defmodule Knra.Release do
   ##     /srv/knra/current/bin/knra rpc 'Knra.Release.seed_fee_schedule()'
   ##     /srv/knra/current/bin/knra rpc 'Knra.Release.seed_lanes()'
   ##     /srv/knra/current/bin/knra rpc 'Knra.Release.create_api_client("Kenya Trade Network Agency", "KENTRADE", "kentrade")'
+  ##     /srv/knra/current/bin/knra rpc 'Knra.Release.simulate_statuses("MRKU9937602 CLEARED, INBU5333934 DETAINED, MRKU2415627 IN_PROGRESS, MSKU2728942 NOT_FOUND")'
   ##
   ## Options: `station:` (default "KNRA HQ, Nairobi") and `password:`. With a
   ## password the account is created confirmed and ready for password login, and
@@ -186,6 +187,50 @@ defmodule Knra.Release do
       {:error, cs} ->
         IO.puts("Not registered: #{inspect(cs.errors)}")
         {:error, cs.errors}
+    end
+  end
+
+  @doc """
+  Stages containers at chosen screening statuses for partner API testing (see
+  `Knra.Simulator.Batch` for the text format). Needs `SIMULATORS_ENABLED=true`.
+  Runs as the super admin given by `as:` (email), or the first active one.
+  Other options: `default:` (status for containers given without one; default
+  spreads them over all statuses) and `lane:` (device code, default auto).
+  """
+  def simulate_statuses(text, opts \\ []) do
+    import Ecto.Query
+    alias Knra.Accounts.{Scope, User}
+    alias Knra.Simulator.Batch
+
+    user =
+      case opts[:as] do
+        nil ->
+          Knra.Repo.one(
+            from u in User,
+              where: u.role == "super_admin" and u.status == "active",
+              order_by: u.id,
+              limit: 1
+          )
+
+        email ->
+          Knra.Accounts.get_user_by_email(email)
+      end
+
+    case Batch.run(Scope.for_user(user), text, Keyword.take(opts, [:default, :lane])) do
+      {:ok, results} ->
+        IO.puts(
+          String.pad_trailing("CONTAINER", 13) <>
+            String.pad_trailing("TARGET", 44) <> String.pad_trailing("API ANSWER", 34) <> "RESULT"
+        )
+
+        IO.puts(Batch.format(results))
+        failed = Enum.count(results, &match?({:error, _}, &1.result))
+        IO.puts("\n#{length(results) - failed} staged, #{failed} failed (as #{user.email}).")
+        {:ok, length(results) - failed, failed}
+
+      {:error, reason} ->
+        IO.puts("Nothing staged: #{Batch.error_message(reason)}")
+        {:error, reason}
     end
   end
 

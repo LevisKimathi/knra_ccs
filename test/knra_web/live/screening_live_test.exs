@@ -181,5 +181,33 @@ defmodule KnraWeb.ScreeningLiveTest do
       assert [%{container_number: "OOLU4471228", stage: "alarm"}] =
                Knra.Screening.list_by_stage("alarm")
     end
+
+    test "bulk staging shows each container's result and status API answer", ctx do
+      admin = Knra.AccountsFixtures.user_fixture(%{role: "super_admin", name: "Root"})
+      {:ok, lv, _} = live(log_in_user(ctx.conn, admin), ~p"/simulator")
+
+      html =
+        lv
+        |> form("#batch-form", batch: %{text: "MRKU9937602 cleared\nINBU5333934 detained"})
+        |> render_submit()
+
+      assert html =~ "2 of 2 containers staged"
+      assert html =~ "CLEARED"
+      assert html =~ "DETAINED"
+
+      html =
+        lv
+        |> form("#batch-form", batch: %{text: "MRKU9937602 cleared"})
+        |> render_submit()
+
+      assert html =~ "(already there)"
+
+      assert render_submit(
+               form(
+                 as(ctx.conn, ctx.supervisor) |> live(~p"/simulator") |> elem(1),
+                 "#batch-form", batch: %{text: "MRKU2415627"})
+             ) =~
+               "must be run by a super admin"
+    end
   end
 end
