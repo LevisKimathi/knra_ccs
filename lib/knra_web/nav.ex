@@ -53,6 +53,7 @@ defmodule KnraWeb.Nav do
       can.(:manage_devices) && item("devices", "RPM Devices", ~p"/admin/devices"),
       can.(:manage_users) && item("users", "Users", ~p"/admin/users"),
       can.(:manage_roles) && item("roles", "Roles & Permissions", ~p"/admin/roles"),
+      can.(:manage_settings) && item("settings", "System Settings", ~p"/admin/settings"),
       can.(:manage_fees) && item("fees", "Fee Schedule", ~p"/admin/fees"),
       can.(:reconcile_payments) && item("payments", "Payments", ~p"/admin/payments"),
       can.(:view_audit) && item("audit", "Audit Trail", ~p"/admin/audit"),

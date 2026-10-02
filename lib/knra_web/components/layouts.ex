@@ -59,7 +59,7 @@ defmodule KnraWeb.Layouts do
             href={~p"/users/settings"}
             class="ml-2 rounded border border-white/40 px-2.5 py-1.5 font-semibold hover:bg-white/15"
           >
-            Settings
+            Account Settings
           </.link>
           <.link
             href={~p"/users/log-out"}

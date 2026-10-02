@@ -204,7 +204,8 @@ defmodule Knra.Screening do
         end
 
         Billing.raise_invoice!(app, scanned_at)
-        app
+
+        if auto_clear?(app), do: auto_approve!(app), else: app
       end)
       |> case do
         {:ok, app} ->
@@ -212,6 +213,7 @@ defmodule Knra.Screening do
           broadcast(app, :created)
           if app.alarmed, do: Notifications.alarm_raised(app)
           if app.review_status == "pending", do: Notifications.flagged_for_review(app)
+          cleared_side_effects(app)
 
           # A manual pass was already looked up in KenTrade on the operator's screen
           case opts[:lookup] do
@@ -228,6 +230,30 @@ defmodule Knra.Screening do
       %Application{} = existing -> {:ok, existing}
       error -> error
     end
+  end
+
+  # System setting "Auto-clear passes with no alarm". Flagged passes still need
+  # their supervisor review, so they are never auto-cleared.
+  defp auto_clear?(%Application{alarmed: false, review_status: review}) when review != "pending",
+    do: Knra.Settings.enabled?("auto_clear_no_alarm")
+
+  defp auto_clear?(_), do: false
+
+  defp auto_approve!(app) do
+    app =
+      app
+      |> Ecto.Changeset.change(stage: "approved", auto_approved: true)
+      |> Repo.update!()
+
+    Audit.log(
+      "System",
+      :application,
+      app.reference,
+      "Approved automatically — no alarm on the RPM pass",
+      "System setting: Auto-clear passes with no alarm (no screening report or verification)"
+    )
+
+    maybe_clear!(app, force: not Knra.Settings.enabled?("auto_clear_wait_for_payment"))
   end
 
   defp counts_note(nil, nil), do: "No RIID reading recorded"
@@ -319,11 +345,14 @@ defmodule Knra.Screening do
   end
 
   @doc "May a pass be recorded anyway after this KenTrade result (with a reason)?"
-  def overridable?({:ok, %KenTrade.Result{status: s}}) when s in ["NOT_FOUND", "TRANSIT"],
+  def overridable?(lookup),
+    do: Knra.Settings.enabled?("rpm_override_enabled") and override_case?(lookup)
+
+  defp override_case?({:ok, %KenTrade.Result{status: s}}) when s in ["NOT_FOUND", "TRANSIT"],
     do: true
 
-  def overridable?({:error, %KenTrade.Result{}}), do: true
-  def overridable?(_), do: false
+  defp override_case?({:error, %KenTrade.Result{}}), do: true
+  defp override_case?(_), do: false
 
   # FOUND for the same container: normal pass. Otherwise an override reason is
   # required, and the lookup must have been for this same container number.
@@ -843,10 +872,12 @@ defmodule Knra.Screening do
   end
 
   # An approved application with a paid invoice is cleared and its certificate issued.
-  defp maybe_clear!(%Application{stage: "approved"} = app) do
+  defp maybe_clear!(app, opts \\ [])
+
+  defp maybe_clear!(%Application{stage: "approved"} = app, opts) do
     invoice = Repo.get_by!(Knra.Billing.Invoice, application_id: app.id)
 
-    if invoice.status == "paid" do
+    if invoice.status == "paid" or opts[:force] do
       number = certificate_number()
 
       app =
@@ -862,7 +893,10 @@ defmodule Knra.Screening do
         "System",
         :application,
         app.reference,
-        "Cleared — screening certificate #{number} issued"
+        "Cleared — screening certificate #{number} issued",
+        if(invoice.status != "paid",
+          do: "Fee #{invoice.number} still owed (auto-clear does not wait for payment)"
+        )
       )
 
       app
@@ -878,7 +912,7 @@ defmodule Knra.Screening do
     end
   end
 
-  defp maybe_clear!(app), do: app
+  defp maybe_clear!(app, _opts), do: app
 
   defp cleared_side_effects(%Application{stage: "cleared"} = app), do: Notifications.cleared(app)
   defp cleared_side_effects(_), do: :ok

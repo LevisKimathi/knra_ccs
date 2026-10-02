@@ -46,6 +46,8 @@ defmodule Knra.Accounts.Policy do
     {:view_integrations, "View integrations", "Administration", "KenTrade and status API logs"},
     {:manage_api_clients, "Manage API clients", "Administration",
      "Credentials for organisations using the status API"},
+    {:manage_settings, "Manage system settings", "Administration",
+     "Record Anyway, auto-clearance and other system rules"},
     {:receive_alert_emails, "Receive alert emails", "Notifications",
      "Detention, device-fault and similar alerts"},
     {:simulate, "Use the simulator", "Sandbox", "RPM and M-Pesa simulator (only where enabled)"}

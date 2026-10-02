@@ -21,7 +21,16 @@
     is raised to its release. This certificate does not constitute customs clearance.
   </div>
 
-  <div class="mt-11 grid grid-cols-2 gap-8">
+  <div :if={@app.auto_approved} class="mt-11 border-t border-ink pt-2">
+    <div class="text-[13px] font-semibold">Approved automatically</div>
+    <div class="text-xs text-muted">
+      No radiation alarm on the RPM pass; issued under the KNRA auto-clearance rule in force at screening · {Knra.Time.format(
+        @app.cleared_at
+      )}
+    </div>
+  </div>
+
+  <div :if={not @app.auto_approved} class="mt-11 grid grid-cols-2 gap-8">
     <div class="border-t border-ink pt-2">
       <div class="text-[13px] font-semibold">{@report && @report.maker.name}</div>
       <div class="text-xs text-muted">

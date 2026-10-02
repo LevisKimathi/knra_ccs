@@ -198,7 +198,12 @@ defmodule Knra.Simulator.Batch do
           else: {:error, {:open_at, stage}}
 
       _ ->
-        alarm? = target in ["alarm", "secondary", "detained"]
+        # With "Auto-clear passes with no alarm" on, a clear pass skips the report
+        # stages, so those are reached through an alarm that CAS then releases.
+        alarm? =
+          target in ["alarm", "secondary", "detained"] or
+            (target in ["report_draft", "report_check"] and
+               Knra.Settings.enabled?("auto_clear_no_alarm"))
 
         with {:ok, app} <- Simulator.rpm_pass(scope, container, lane, alarm?) do
           advance(scope, app, target)

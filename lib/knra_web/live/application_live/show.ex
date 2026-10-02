@@ -198,7 +198,17 @@ defmodule KnraWeb.ApplicationLive.Show do
             <% end %>
           </.card>
 
+          <.card :if={@app.auto_approved} title="Screening Report" id="report">
+            <p class="text-[13px] leading-relaxed text-muted">
+              <strong class="text-ok">Approved automatically.</strong>
+              The RPM pass showed no alarm and the system setting
+              <em>Auto-clear passes with no alarm</em>
+              was on, so no screening report or verification was required.
+            </p>
+          </.card>
+
           <.report_card
+            :if={not @app.auto_approved}
             app={@app}
             scope={@current_scope}
             report_form={@report_form}
@@ -243,7 +253,7 @@ defmodule KnraWeb.ApplicationLive.Show do
       </div>
       <div :if={@app.review_status == "reviewed"} class="mt-1">
         Reviewed by {@app.reviewed_by && @app.reviewed_by.name} · {Knra.Time.format(@app.reviewed_at)}
-        <span :if={@app.review_note}> —       {@app.review_note}</span>
+        <span :if={@app.review_note}> —          {@app.review_note}</span>
       </div>
       <.form
         :if={@can_review and @app.review_status == "pending"}
@@ -289,7 +299,11 @@ defmodule KnraWeb.ApplicationLive.Show do
         :if={@app.stage == "approved"}
         class="rounded-md border border-warn/30 bg-warn-soft px-5 py-4 text-sm text-warn"
       >
-        <strong>Screening report approved.</strong>
+        <strong>
+          {if @app.auto_approved,
+            do: "Approved automatically (no alarm).",
+            else: "Screening report approved."}
+        </strong>
         Invoice <span class="font-mono">{@app.invoice.number}</span>
         is still pending — the certificate is issued as soon as it is paid.
       </div>

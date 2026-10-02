@@ -58,3 +58,4 @@ config :knra, Knra.Integrations.KenTrade,
 # Role permissions are read from the database on every check, so each test's
 # (sandboxed) role changes are seen without a shared in-memory cache
 config :knra, :role_cache, false
+config :knra, :settings_cache, false

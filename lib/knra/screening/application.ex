@@ -22,6 +22,8 @@ defmodule Knra.Screening.Application do
     field :review_status, :string
     field :reviewed_at, :utc_datetime
     field :review_note, :string
+    # Approved by the "Auto-clear passes with no alarm" setting (no report)
+    field :auto_approved, :boolean, default: false
 
     field :lookup_status, :string, default: "pending"
     field :lookup_message, :string
