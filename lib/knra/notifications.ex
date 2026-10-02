@@ -58,6 +58,15 @@ defmodule Knra.Notifications do
     """)
   end
 
+  def flagged_for_review(%Application{} = app) do
+    notify(
+      "supervisor",
+      :error,
+      "#{c(app)} (#{app.reference}) recorded without KenTrade confirmation — review needed.",
+      "/reviews"
+    )
+  end
+
   def cleared(%Application{} = app) do
     notify(
       ["cas_operator", "checking_officer", "verification_officer", "supervisor"],

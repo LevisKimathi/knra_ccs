@@ -274,6 +274,12 @@ defmodule KnraWeb.UI do
     """
   end
 
+  @doc "Short detector reading for list rows: `gamma 120 cps · neutron 3 cps`, or that none was taken."
+  def counts(%{gamma_cps: nil, neutron_cps: nil}), do: "no RIID reading"
+
+  def counts(%{gamma_cps: g, neutron_cps: n}),
+    do: "gamma #{g || "—"} cps · neutron #{n || "—"} cps"
+
   def money(%Decimal{} = d), do: Knra.Billing.fmt(d)
   def money(nil), do: "—"
 end

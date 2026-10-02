@@ -33,6 +33,8 @@ defmodule Knra.Screening do
 
   @preloads [
     :lane,
+    :recorded_by,
+    :reviewed_by,
     :adjudication,
     inspection: :user,
     invoice: :payments,
@@ -131,8 +133,9 @@ defmodule Knra.Screening do
 
   Idempotent on `occupancy_ref`.
   """
-  def ingest_occupancy(%{} = event) do
+  def ingest_occupancy(%{} = event, opts \\ []) do
     container = KenTrade.normalise(event.container_number)
+    recorded_by = opts[:recorded_by]
 
     with nil <- Repo.get_by(Application, occupancy_ref: event.occupancy_ref),
          :ok <- validate_container(container),
@@ -141,6 +144,7 @@ defmodule Knra.Screening do
       scanned_at = event[:scanned_at] || Knra.Time.now()
       reference = Billing.next_number("application_number_seq", "CCS")
       lane_actor = lane.name
+      disp = Application.display_container(container)
 
       Repo.transaction(fn ->
         app =
@@ -151,31 +155,53 @@ defmodule Knra.Screening do
             lane_id: lane.id,
             occupancy_ref: event.occupancy_ref,
             scanned_at: scanned_at,
-            gamma_cps: event.gamma_cps,
-            neutron_cps: event.neutron_cps,
-            alarmed: event.alarmed
+            gamma_cps: event[:gamma_cps],
+            neutron_cps: event[:neutron_cps],
+            alarmed: event.alarmed,
+            source: if(recorded_by, do: "manual", else: "rpm_feed"),
+            recorded_by_id: recorded_by && recorded_by.user.id,
+            override_reason: opts[:override_reason],
+            review_status: if(opts[:override_reason], do: "pending")
           })
 
-        disp = Application.display_container(container)
+        if recorded_by do
+          Audit.log(
+            recorded_by,
+            :application,
+            reference,
+            "RPM pass recorded by RPM operator — container #{disp}",
+            "#{lane.name} · #{event.occupancy_ref}"
+          )
+        else
+          Audit.log(
+            lane_actor <> " · OCR camera",
+            :application,
+            reference,
+            "Container #{disp} read by OCR on RPM pass",
+            event.occupancy_ref
+          )
+        end
 
         Audit.log(
-          lane_actor <> " · OCR camera",
-          :application,
-          reference,
-          "Container #{disp} read by OCR on RPM pass",
-          event.occupancy_ref
-        )
-
-        Audit.log(
-          lane_actor,
+          recorded_by || lane_actor,
           :application,
           reference,
           if(event.alarmed,
             do: "Radiation alarm — occupancy held for adjudication",
             else: "Occupancy recorded — no alarm"
           ),
-          "Gamma #{event.gamma_cps} cps · neutron #{event.neutron_cps} cps"
+          counts_note(event[:gamma_cps], event[:neutron_cps])
         )
+
+        if reason = opts[:override_reason] do
+          Audit.log(
+            recorded_by,
+            :application,
+            reference,
+            "Recorded without KenTrade confirmation — flagged for review",
+            reason
+          )
+        end
 
         Billing.raise_invoice!(app, scanned_at)
         app
@@ -185,7 +211,14 @@ defmodule Knra.Screening do
           app = Repo.preload(app, :lane)
           broadcast(app, :created)
           if app.alarmed, do: Notifications.alarm_raised(app)
-          schedule_lookup(app)
+          if app.review_status == "pending", do: Notifications.flagged_for_review(app)
+
+          # A manual pass was already looked up in KenTrade on the operator's screen
+          case opts[:lookup] do
+            nil -> schedule_lookup(app)
+            result -> apply_lookup(app, result)
+          end
+
           {:ok, app}
 
         error ->
@@ -195,6 +228,218 @@ defmodule Knra.Screening do
       %Application{} = existing -> {:ok, existing}
       error -> error
     end
+  end
+
+  defp counts_note(nil, nil), do: "No RIID reading recorded"
+
+  defp counts_note(g, n),
+    do: "Gamma #{if g, do: "#{g} cps", else: "—"} · neutron #{if n, do: "#{n} cps", else: "—"}"
+
+  ## ------------------------------------------------------------------
+  ## Manual RPM pass (RPM operator)
+
+  @doc """
+  Looks a container up in KenTrade for the RPM operator's screen, before a pass
+  is recorded. Returns the KenTrade result (FOUND / TRANSIT / NOT_FOUND / error).
+  """
+  def lookup_for_manual_pass(scope, container_number) do
+    container = KenTrade.normalise(container_number)
+
+    with :ok <- Policy.authorize(scope, :record_rpm_pass),
+         :ok <- validate_container(container) do
+      KenTrade.container_enquiry(container,
+        officer_id: scope.user.staff_number || scope.user.email,
+        event_datetime: Knra.Time.now()
+      )
+    end
+  end
+
+  @manual_types %{
+    container_number: :string,
+    lane_id: :integer,
+    outcome: :string,
+    gamma_cps: :integer,
+    neutron_cps: :integer,
+    override_reason: :string
+  }
+
+  @doc "Form changeset for recording a manual RPM pass."
+  def change_manual_pass(params \\ %{}) do
+    {%{}, @manual_types}
+    |> Ecto.Changeset.cast(params, Map.keys(@manual_types))
+    |> Ecto.Changeset.validate_required([:container_number, :lane_id, :outcome],
+      message: "is required"
+    )
+    |> Ecto.Changeset.validate_inclusion(:outcome, ~w(pass alarm))
+    |> Ecto.Changeset.validate_number(:gamma_cps,
+      greater_than_or_equal_to: 0,
+      less_than: 1_000_000
+    )
+    |> Ecto.Changeset.validate_number(:neutron_cps,
+      greater_than_or_equal_to: 0,
+      less_than: 1_000_000
+    )
+  end
+
+  @doc """
+  Records an RPM pass entered by an RPM operator. `lookup` is the KenTrade result
+  shown on the operator's screen and `looked_up` the container number that was
+  looked up. `outcome` is "pass" (no alarm, straight to report drafting) or
+  "alarm" (held for CAS adjudication). Gamma/neutron counts are optional.
+
+  Normally KenTrade must have FOUND the container. If it was not found, is
+  transit-only, or KenTrade failed, the pass can still be recorded with an
+  `override_reason` (10+ characters); it is then flagged for supervisor review.
+  """
+  def record_manual_pass(scope, params, lookup, looked_up \\ nil) do
+    cs = change_manual_pass(params)
+
+    with :ok <- Policy.authorize(scope, :record_rpm_pass),
+         {:ok, attrs} <- Ecto.Changeset.apply_action(cs, :insert),
+         {:ok, override} <- check_lookup(cs, lookup, looked_up, attrs),
+         %Knra.Devices.Lane{} = lane <-
+           Repo.get(Knra.Devices.Lane, attrs.lane_id) || {:error, :unknown_lane} do
+      local = Knra.Time.to_local(Knra.Time.now())
+
+      ingest_occupancy(
+        %{
+          occupancy_ref:
+            "MAN-#{Calendar.strftime(local, "%y%m%d%H%M%S")}-#{:rand.uniform(899) + 100}",
+          container_number: attrs.container_number,
+          lane_code: lane.device_code,
+          gamma_cps: attrs[:gamma_cps],
+          neutron_cps: attrs[:neutron_cps],
+          alarmed: attrs.outcome == "alarm"
+        },
+        recorded_by: scope,
+        lookup: lookup,
+        override_reason: override
+      )
+    end
+  end
+
+  @doc "May a pass be recorded anyway after this KenTrade result (with a reason)?"
+  def overridable?({:ok, %KenTrade.Result{status: s}}) when s in ["NOT_FOUND", "TRANSIT"],
+    do: true
+
+  def overridable?({:error, %KenTrade.Result{}}), do: true
+  def overridable?(_), do: false
+
+  # FOUND for the same container: normal pass. Otherwise an override reason is
+  # required, and the lookup must have been for this same container number.
+  defp check_lookup(cs, lookup, looked_up, attrs) do
+    container = KenTrade.normalise(attrs.container_number)
+
+    cond do
+      match?({:ok, %KenTrade.Result{status: "FOUND"}}, lookup) ->
+        {:ok, %KenTrade.Result{container_number: c}} = lookup
+
+        if KenTrade.normalise(c || container) == container,
+          do: {:ok, nil},
+          else: {:error, :lookup_required}
+
+      overridable?(lookup) and is_binary(looked_up) and KenTrade.normalise(looked_up) == container ->
+        reason = String.trim(attrs[:override_reason] || "")
+
+        if String.length(reason) >= 10 do
+          {:ok, reason}
+        else
+          {:error,
+           cs
+           |> Ecto.Changeset.add_error(
+             :override_reason,
+             "explain why you are recording without KenTrade confirmation (at least 10 characters)"
+           )
+           |> Map.put(:action, :insert)}
+        end
+
+      true ->
+        {:error, :lookup_required}
+    end
+  end
+
+  @doc "Attaches evidence photos (already stored under the application's upload folder)."
+  def attach_evidence(scope, %Application{} = app, [_ | _] = names) do
+    with :ok <- Policy.authorize(scope, :record_rpm_pass) do
+      Repo.transaction(fn ->
+        app = Repo.one!(from a in Application, where: a.id == ^app.id, lock: "FOR UPDATE")
+
+        updated =
+          app
+          |> Ecto.Changeset.change(evidence_photos: app.evidence_photos ++ names)
+          |> Repo.update!()
+
+        Audit.log(
+          scope,
+          :application,
+          app.reference,
+          "#{length(names)} evidence photo(s) attached"
+        )
+
+        updated
+      end)
+      |> tap(fn
+        {:ok, a} -> broadcast(a, :updated)
+        _ -> :ok
+      end)
+    end
+  end
+
+  def attach_evidence(_scope, app, []), do: {:ok, app}
+
+  @doc "Passes recorded without KenTrade confirmation; `status` is \"pending\" or \"reviewed\"."
+  def list_flagged(status \\ "pending", limit \\ 100) do
+    Repo.all(
+      from a in Application,
+        where: a.review_status == ^status,
+        order_by: [desc: a.scanned_at],
+        limit: ^limit,
+        preload: [:lane, :recorded_by, :reviewed_by]
+    )
+  end
+
+  def count_flagged,
+    do: Repo.aggregate(from(a in Application, where: a.review_status == "pending"), :count)
+
+  @doc "Supervisor marks a flagged pass as reviewed, with an optional note."
+  def mark_reviewed(scope, %Application{} = app, note \\ nil) do
+    note = if is_binary(note), do: String.trim(note), else: nil
+    note = if note == "", do: nil, else: note
+
+    with :ok <- Policy.authorize(scope, :review_flagged) do
+      Repo.transaction(fn ->
+        app = Repo.one!(from a in Application, where: a.id == ^app.id, lock: "FOR UPDATE")
+
+        if app.review_status != "pending", do: Repo.rollback(:not_flagged)
+
+        updated =
+          app
+          |> Ecto.Changeset.change(
+            review_status: "reviewed",
+            reviewed_by_id: scope.user.id,
+            reviewed_at: Knra.Time.now(),
+            review_note: note
+          )
+          |> Repo.update!()
+
+        Audit.log(scope, :application, app.reference, "Flagged pass reviewed", note)
+        updated
+      end)
+      |> tap(fn
+        {:ok, a} -> broadcast(a, :updated)
+        _ -> :ok
+      end)
+    end
+  end
+
+  def list_manual_passes(scope, limit \\ 15) do
+    Repo.all(
+      from a in Application,
+        where: a.recorded_by_id == ^scope.user.id,
+        order_by: [desc: a.scanned_at],
+        limit: ^limit,
+        preload: :lane
+    )
   end
 
   defp validate_container(c) do
@@ -249,6 +494,11 @@ defmodule Knra.Screening do
         event_datetime: app.scanned_at
       )
 
+    apply_lookup(app, result)
+  end
+
+  @doc "Stores a KenTrade result on the application (consignment particulars or the failure)."
+  def apply_lookup(%Application{} = app, result) do
     {attrs, action, note} = lookup_attrs(result)
 
     Repo.transaction(fn ->
@@ -691,5 +941,11 @@ defmodule Knra.Screening do
     do: "This container already has an open screening application."
 
   def error_message(:reason_required), do: "A reason is required."
+
+  def error_message(:not_flagged), do: "This pass is not awaiting review."
+
+  def error_message(:lookup_required),
+    do: "Look the container up in KenTrade first; only containers KenTrade finds can be recorded."
+
   def error_message(other), do: "Action failed: #{inspect(other)}"
 end

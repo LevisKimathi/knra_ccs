@@ -205,7 +205,9 @@ defmodule KnraWeb.ScreeningLiveTest do
       assert render_submit(
                form(
                  as(ctx.conn, ctx.supervisor) |> live(~p"/simulator") |> elem(1),
-                 "#batch-form", batch: %{text: "MRKU2415627"})
+                 "#batch-form",
+                 batch: %{text: "MRKU2415627"}
+               )
              ) =~
                "must be run by a super admin"
     end

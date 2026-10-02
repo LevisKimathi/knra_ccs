@@ -2,7 +2,7 @@ defmodule Knra.Accounts.User do
   use Ecto.Schema
   import Ecto.Changeset
 
-  @roles ~w(cas_operator field_officer checking_officer verification_officer supervisor super_admin)
+  @roles ~w(rpm_operator cas_operator field_officer checking_officer verification_officer supervisor super_admin)
   @statuses ~w(active suspended deactivated)
 
   schema "users" do
@@ -25,6 +25,7 @@ defmodule Knra.Accounts.User do
   def statuses, do: @statuses
 
   @role_labels %{
+    "rpm_operator" => "RPM operator",
     "cas_operator" => "CAS operator",
     "field_officer" => "Field inspection officer",
     "checking_officer" => "Checking officer",

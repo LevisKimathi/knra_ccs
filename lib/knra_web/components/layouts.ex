@@ -97,7 +97,7 @@ defmodule KnraWeb.Layouts do
                 :if={(@nav_counts[item.key] || 0) > 0}
                 class={[
                   "min-w-5 rounded-full px-1.5 py-px text-center text-[11px] font-bold",
-                  if(item.key in ["alarms", "payments"],
+                  if(item.key in ["alarms", "payments", "flagged"],
                     do: "bg-bad-soft text-bad",
                     else: "bg-canvas text-muted"
                   )
@@ -129,6 +129,9 @@ defmodule KnraWeb.Layouts do
 
     work =
       case role do
+        "rpm_operator" ->
+          [item("rpm_pass", "Record RPM Pass", ~p"/rpm/record")]
+
         "cas_operator" ->
           [
             item("lanes", "Lane Overview", ~p"/cas/lanes"),
@@ -150,6 +153,7 @@ defmodule KnraWeb.Layouts do
 
         "super_admin" ->
           [
+            item("rpm_pass", "Record RPM Pass", ~p"/rpm/record"),
             item("lanes", "Lane Overview", ~p"/cas/lanes"),
             item("alarms", "Alarm Queue", ~p"/cas/alarms"),
             item("inspections", "Secondary Inspections", ~p"/inspections"),
@@ -160,7 +164,14 @@ defmodule KnraWeb.Layouts do
           []
       end
 
-    work = work ++ [item("applications", "All Applications", ~p"/applications")]
+    work =
+      work ++
+        [
+          can.(:review_flagged) && item("flagged", "Flagged Passes", ~p"/reviews"),
+          item("applications", "All Applications", ~p"/applications")
+        ]
+
+    work = Enum.filter(work, & &1)
 
     admin =
       [

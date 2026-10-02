@@ -10,7 +10,9 @@ defmodule Knra.Accounts.Policy do
 
   @permissions %{
     view_applications:
-      ~w(cas_operator field_officer checking_officer verification_officer supervisor),
+      ~w(rpm_operator cas_operator field_officer checking_officer verification_officer supervisor),
+    record_rpm_pass: ~w(rpm_operator),
+    review_flagged: ~w(supervisor),
     print_documents:
       ~w(cas_operator field_officer checking_officer verification_officer supervisor),
     adjudicate: ~w(cas_operator),

@@ -13,6 +13,15 @@ defmodule Knra.Screening.Application do
     field :gamma_cps, :integer
     field :neutron_cps, :integer
     field :alarmed, :boolean, default: false
+    # "rpm_feed" (RPM / simulator event) or "manual" (recorded by an RPM operator)
+    field :source, :string, default: "rpm_feed"
+    field :evidence_photos, {:array, :string}, default: []
+    # Recorded without KenTrade confirmation: the operator's reason, and the
+    # supervisor review (nil = not flagged, "pending", "reviewed")
+    field :override_reason, :string
+    field :review_status, :string
+    field :reviewed_at, :utc_datetime
+    field :review_note, :string
 
     field :lookup_status, :string, default: "pending"
     field :lookup_message, :string
@@ -31,6 +40,8 @@ defmodule Knra.Screening.Application do
     field :cleared_at, :utc_datetime
 
     belongs_to :lane, Knra.Devices.Lane
+    belongs_to :recorded_by, Knra.Accounts.User
+    belongs_to :reviewed_by, Knra.Accounts.User
     has_one :invoice, Knra.Billing.Invoice
     has_one :adjudication, Knra.Screening.Adjudication
     has_one :inspection, Knra.Screening.Inspection

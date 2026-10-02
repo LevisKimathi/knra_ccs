@@ -55,6 +55,12 @@ defmodule KnraWeb.ApplicationLive.Show do
         </:actions>
       </.page_header>
 
+      <.review_banner
+        :if={@app.review_status}
+        app={@app}
+        can_review={Policy.can?(@current_scope, :review_flagged)}
+      />
+
       <.banners app={@app} can_retry={Policy.can?(@current_scope, :retry_lookup)} />
 
       <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_400px]">
@@ -65,15 +71,28 @@ defmodule KnraWeb.ApplicationLive.Show do
                 {if @app.alarmed, do: "ALARM", else: "NO ALARM"}
               </.pill>
             </:actions>
-            <.channel name="Gamma" value={@app.gamma_cps} threshold={gamma_threshold()} scale={300} />
             <.channel
+              :if={@app.gamma_cps}
+              name="Gamma"
+              value={@app.gamma_cps}
+              threshold={gamma_threshold()}
+              scale={300}
+            />
+            <.channel
+              :if={@app.neutron_cps}
               name="Neutron"
               value={@app.neutron_cps}
               threshold={neutron_threshold()}
               scale={10}
             />
-            <p class="text-xs text-subtle">
+            <p :if={@app.gamma_cps || @app.neutron_cps} class="text-xs text-subtle">
               Vertical marker = alarm threshold. Counts over background.
+            </p>
+            <p
+              :if={is_nil(@app.gamma_cps) and is_nil(@app.neutron_cps)}
+              class="text-[13px] text-muted"
+            >
+              No RIID reading was recorded for this pass.
             </p>
             <div class="mt-5 border-t border-line-soft pt-5">
               <.kv
@@ -81,9 +100,32 @@ defmodule KnraWeb.ApplicationLive.Show do
                 rows={[
                   {"Occupancy", @app.occupancy_ref},
                   {"Lane", "#{@app.lane.name} · #{@app.lane.device_code}"},
-                  {"Scanned", Knra.Time.format(@app.scanned_at)}
+                  {"Scanned", Knra.Time.format(@app.scanned_at)},
+                  {"Recorded by",
+                   if(@app.source == "manual",
+                     do: "RPM operator #{@app.recorded_by && @app.recorded_by.name}",
+                     else: "RPM feed (OCR)"
+                   )}
                 ]}
               />
+            </div>
+            <div :if={@app.evidence_photos != []} class="mt-5 border-t border-line-soft pt-5">
+              <div class="mb-2 text-[11px] font-bold uppercase tracking-[0.06em] text-subtle">
+                Evidence photos
+              </div>
+              <div class="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                <a
+                  :for={p <- @app.evidence_photos}
+                  href={~p"/applications/#{@app.reference}/photos/#{p}"}
+                  target="_blank"
+                  class="block overflow-hidden rounded border border-line"
+                >
+                  <img
+                    src={~p"/applications/#{@app.reference}/photos/#{p}"}
+                    class="aspect-square w-full object-cover"
+                  />
+                </a>
+              </div>
             </div>
           </.card>
 
@@ -174,6 +216,53 @@ defmodule KnraWeb.ApplicationLive.Show do
 
   ## ------------------------------------------------------------------
   ## Sections
+
+  attr :app, :map, required: true
+  attr :can_review, :boolean, required: true
+
+  defp review_banner(assigns) do
+    ~H"""
+    <div
+      id="review-banner"
+      class={[
+        "mb-5 rounded-md border px-5 py-4 text-sm",
+        if(@app.review_status == "pending",
+          do: "border-warn/30 bg-warn-soft text-warn",
+          else: "border-line bg-white text-muted"
+        )
+      ]}
+    >
+      <div class="font-bold">
+        {if @app.review_status == "pending",
+          do: "Flagged for review — recorded without KenTrade confirmation",
+          else: "Recorded without KenTrade confirmation — reviewed"}
+      </div>
+      <div class="mt-1">
+        Reason given by {(@app.recorded_by && @app.recorded_by.name) || "the RPM operator"}:
+        <span class="text-ink">{@app.override_reason}</span>
+      </div>
+      <div :if={@app.review_status == "reviewed"} class="mt-1">
+        Reviewed by {@app.reviewed_by && @app.reviewed_by.name} · {Knra.Time.format(@app.reviewed_at)}
+        <span :if={@app.review_note}> —     {@app.review_note}</span>
+      </div>
+      <.form
+        :if={@can_review and @app.review_status == "pending"}
+        for={%{}}
+        as={:review}
+        id="review-form"
+        phx-submit="mark_reviewed"
+        class="mt-3 flex flex-wrap items-end gap-3"
+      >
+        <div class="min-w-64 flex-1">
+          <.input name="review[note]" value="" label="Review note (optional)" />
+        </div>
+        <button type="submit" class={[btn(:ok, :sm), "mb-2"]} phx-disable-with="Saving…">
+          Mark as Reviewed
+        </button>
+      </.form>
+    </div>
+    """
+  end
 
   attr :app, :map, required: true
   attr :can_retry, :boolean, required: true
@@ -921,6 +1010,13 @@ defmodule KnraWeb.ApplicationLive.Show do
 
       {:error, reason} ->
         {:noreply, put_flash(socket, :error, Screening.error_message(reason))}
+    end
+  end
+
+  def handle_event("mark_reviewed", %{"review" => %{"note" => note}}, socket) do
+    case Screening.mark_reviewed(socket.assigns.current_scope, socket.assigns.app, note) do
+      {:ok, _} -> {:noreply, socket |> put_flash(:info, "Marked as reviewed.") |> load()}
+      {:error, reason} -> {:noreply, put_flash(socket, :error, Screening.error_message(reason))}
     end
   end
 

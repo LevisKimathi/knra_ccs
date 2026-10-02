@@ -24,6 +24,8 @@ end
 now = DateTime.utc_now(:second)
 
 staff = [
+  {"J. Mutua", "j.mutua@knra.go.ke", "KN0901", "rpm_operator", "RPM berth, KOT Terminal 1",
+   "active"},
   {"P. Otieno", "p.otieno@knra.go.ke", "KN1001", "cas_operator", "CAS, KOT Terminal 1", "active"},
   {"B. Kiptoo", "b.kiptoo@knra.go.ke", "KN1002", "cas_operator", "CAS, KOT Terminal 1",
    "suspended"},

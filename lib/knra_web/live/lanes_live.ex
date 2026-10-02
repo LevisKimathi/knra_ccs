@@ -80,7 +80,7 @@ defmodule KnraWeb.LanesLive do
             <div class="min-w-0 flex-1">
               <.container_no number={a.container_number} class="text-[13px]" />
               <div class="text-xs text-muted">
-                {a.lane.name} · gamma {a.gamma_cps} cps · waiting {Knra.Time.ago(a.scanned_at)}
+                {a.lane.name} · {KnraWeb.UI.counts(a)} · waiting {Knra.Time.ago(a.scanned_at)}
               </div>
             </div>
             <.link navigate={~p"/applications/#{a.reference}"} class={btn(:secondary, :sm)}>

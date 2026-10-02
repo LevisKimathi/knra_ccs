@@ -5,6 +5,7 @@ defmodule KnraWeb.PageController do
   def home(conn, _params) do
     path =
       case conn.assigns.current_scope.user.role do
+        "rpm_operator" -> ~p"/rpm/record"
         "cas_operator" -> ~p"/cas/lanes"
         "field_officer" -> ~p"/inspections"
         "checking_officer" -> ~p"/reports"

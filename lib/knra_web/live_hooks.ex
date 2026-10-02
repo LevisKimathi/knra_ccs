@@ -91,7 +91,8 @@ defmodule KnraWeb.LiveHooks do
         if(Policy.can?(scope, :reconcile_payments),
           do: Billing.count_unmatched_payments(),
           else: 0
-        )
+        ),
+      "flagged" => if(Policy.can?(scope, :review_flagged), do: Screening.count_flagged(), else: 0)
     }
   end
 end

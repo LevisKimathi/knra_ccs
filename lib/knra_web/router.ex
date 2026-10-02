@@ -74,6 +74,8 @@ defmodule KnraWeb.Router do
       live "/users/settings", UserLive.Settings, :edit
       live "/users/settings/confirm-email/:token", UserLive.Settings, :confirm_email
 
+      live "/rpm/record", RpmPassLive
+      live "/reviews", FlaggedLive
       live "/cas/lanes", LanesLive
       live "/cas/alarms", AlarmQueueLive
       live "/inspections", InspectionsLive

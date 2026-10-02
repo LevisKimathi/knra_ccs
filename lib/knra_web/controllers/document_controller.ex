@@ -42,9 +42,9 @@ defmodule KnraWeb.DocumentController do
 
   def photo(conn, %{"ref" => ref, "file" => file}) do
     app = Screening.get_application!(ref)
-    photos = (app.inspection && app.inspection.photos) || []
+    photos = ((app.inspection && app.inspection.photos) || []) ++ app.evidence_photos
 
-    # Only files recorded on this application's inspection are served.
+    # Only files recorded on this application (inspection or RPM evidence) are served.
     if file in photos do
       path = Path.join([Application.fetch_env!(:knra, :uploads_dir), app.reference, file])
 

@@ -38,7 +38,7 @@ defmodule KnraWeb.InspectionsLive do
               Diverted {Knra.Time.format(a.adjudication.inserted_at)} · {a.adjudication.classification}
             </div>
             <div class="mt-1 text-xs text-subtle">
-              {a.lane.name} · gamma {a.gamma_cps} cps · neutron {a.neutron_cps} cps
+              {a.lane.name} · {KnraWeb.UI.counts(a)}
             </div>
           </.link>
           <div :if={@tasks == []} class="rounded-md border border-line bg-white">
