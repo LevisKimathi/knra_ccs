@@ -13,6 +13,7 @@ defmodule Knra.Application do
       {DNSCluster, query: Application.get_env(:knra, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Knra.PubSub},
       {Task.Supervisor, name: Knra.TaskSupervisor},
+      Knra.Accounts.RoleCache,
       # Start a worker by calling: Knra.Worker.start_link(arg)
       # {Knra.Worker, arg},
       # Start to serve requests, typically the last entry

@@ -54,3 +54,7 @@ config :knra, Knra.Integrations.KenTrade,
   password: "test-password",
   agency_code: "KNRA",
   mock: true
+
+# Role permissions are read from the database on every check, so each test's
+# (sandboxed) role changes are seen without a shared in-memory cache
+config :knra, :role_cache, false

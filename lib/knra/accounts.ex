@@ -106,6 +106,12 @@ defmodule Knra.Accounts do
     |> Repo.all()
   end
 
+  @doc "Active users whose role grants `permission` (super admins always included)."
+  def list_active_users_with_permission(permission) do
+    keys = Knra.Accounts.Roles.keys_with_permission(permission)
+    Repo.all(from u in User, where: u.role in ^keys and u.status == "active", order_by: u.name)
+  end
+
   def list_active_users_by_role(role) do
     Repo.all(from u in User, where: u.role == ^role and u.status == "active", order_by: u.name)
   end

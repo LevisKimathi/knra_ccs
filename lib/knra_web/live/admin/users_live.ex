@@ -18,10 +18,10 @@ defmodule KnraWeb.Admin.UsersLive do
 
     ~H"""
     <Layouts.app flash={@flash} current_scope={@current_scope} nav_counts={@nav_counts} active="users">
-      <.page_header title="Users & Roles">
+      <.page_header title="Users">
         <:subtitle>
-          Roles mirror the KNRA Single Window model. Each user holds one role at a time, so the checking
-          and verification officer on a report are always different people. Suspending a user ends their sessions immediately.
+          Each user holds one role at a time. What each role can see and do is set under
+          Roles &amp; Permissions (super admins). Suspending a user ends their sessions immediately.
         </:subtitle>
         <:actions>
           <.link patch={~p"/admin/users/new"} class={btn(:primary, :sm)}>Add user</.link>
@@ -172,7 +172,7 @@ defmodule KnraWeb.Admin.UsersLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, socket |> assign(page_title: "Users & Roles", filters: %{}) |> load()}
+    {:ok, socket |> assign(page_title: "Users", filters: %{}) |> load()}
   end
 
   @impl true

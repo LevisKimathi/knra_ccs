@@ -87,6 +87,9 @@ defmodule KnraWeb.Router do
       live "/admin/users", Admin.UsersLive, :index
       live "/admin/users/new", Admin.UsersLive, :new
       live "/admin/users/:id/edit", Admin.UsersLive, :edit
+      live "/admin/roles", Admin.RolesLive, :index
+      live "/admin/roles/new", Admin.RolesLive, :new
+      live "/admin/roles/:id/edit", Admin.RolesLive, :edit
       live "/admin/fees", Admin.FeesLive, :index
       live "/admin/fees/new", Admin.FeesLive, :new
       live "/admin/payments", Admin.PaymentsLive

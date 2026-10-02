@@ -188,7 +188,8 @@ defmodule Knra.SuperAdminTest do
           "Alarm Queue",
           "Secondary Inspections",
           "Screening Reports",
-          "Users &amp; Roles",
+          "Users",
+          "Roles &amp; Permissions",
           "Audit Trail",
           "API Clients"
         ] do

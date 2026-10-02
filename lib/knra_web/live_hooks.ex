@@ -20,13 +20,15 @@ defmodule KnraWeb.LiveHooks do
     if connected?(socket) do
       Screening.subscribe()
       Devices.subscribe()
-      Notifications.subscribe(scope.user.role)
+      Notifications.subscribe(scope)
+      Knra.Accounts.Roles.subscribe()
       Accounts.touch_last_active(scope.user)
     end
 
     socket =
       socket
       |> assign(:nav_counts, nav_counts(scope))
+      |> assign(:seen_notifications, [])
       |> attach_hook(:knra_broadcasts, :handle_info, &handle_broadcast/2)
 
     {:cont, socket}
@@ -54,8 +56,21 @@ defmodule KnraWeb.LiveHooks do
     end
   end
 
+  # A notice can arrive on several of the user's permission topics; show it once
   defp handle_broadcast({:notification, n}, socket) do
-    {:halt, put_flash(socket, if(n.level == :error, do: :error, else: :info), n.message)}
+    if n.id in socket.assigns.seen_notifications do
+      {:halt, socket}
+    else
+      {:halt,
+       socket
+       |> assign(:seen_notifications, Enum.take([n.id | socket.assigns.seen_notifications], 20))
+       |> put_flash(if(n.level == :error, do: :error, else: :info), n.message)}
+    end
+  end
+
+  # A role was edited: rebuild the menu and counts with the new permissions
+  defp handle_broadcast(:roles_changed, socket) do
+    {:halt, assign(socket, :nav_counts, nav_counts(socket.assigns.current_scope))}
   end
 
   defp handle_broadcast({:application, _, _, _} = msg, socket) do
@@ -76,11 +91,14 @@ defmodule KnraWeb.LiveHooks do
   def nav_counts(scope) do
     stages = Screening.stage_counts()
 
+    drafts? = Policy.can?(scope, :draft_report)
+    verifies? = Policy.can?(scope, :verify_report)
+
     reports =
-      case scope.user.role do
-        "checking_officer" -> Map.get(stages, "report_draft", 0)
-        "verification_officer" -> Map.get(stages, "report_check", 0)
-        _ -> Map.get(stages, "report_draft", 0) + Map.get(stages, "report_check", 0)
+      cond do
+        drafts? and not verifies? -> Map.get(stages, "report_draft", 0)
+        verifies? and not drafts? -> Map.get(stages, "report_check", 0)
+        true -> Map.get(stages, "report_draft", 0) + Map.get(stages, "report_check", 0)
       end
 
     %{

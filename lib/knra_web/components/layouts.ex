@@ -4,7 +4,7 @@ defmodule KnraWeb.Layouts do
   """
   use KnraWeb, :html
 
-  alias Knra.Accounts.{Policy, User}
+  alias Knra.Accounts.User
 
   embed_templates "layouts/*"
 
@@ -121,79 +121,7 @@ defmodule KnraWeb.Layouts do
     """
   end
 
-  defp nav_items(nil), do: []
-
-  defp nav_items(scope) do
-    role = scope.user.role
-    can = &Policy.can?(scope, &1)
-
-    work =
-      case role do
-        "rpm_operator" ->
-          [item("rpm_pass", "Record RPM Pass", ~p"/rpm/record")]
-
-        "cas_operator" ->
-          [
-            item("lanes", "Lane Overview", ~p"/cas/lanes"),
-            item("alarms", "Alarm Queue", ~p"/cas/alarms")
-          ]
-
-        "field_officer" ->
-          [item("inspections", "My Inspections", ~p"/inspections")]
-
-        r when r in ["checking_officer", "verification_officer"] ->
-          [item("reports", "Screening Reports", ~p"/reports")]
-
-        "supervisor" ->
-          [
-            item("lanes", "Lane Overview", ~p"/cas/lanes"),
-            item("alarms", "Alarm Queue", ~p"/cas/alarms"),
-            item("reports", "Screening Reports", ~p"/reports")
-          ]
-
-        "super_admin" ->
-          [
-            item("rpm_pass", "Record RPM Pass", ~p"/rpm/record"),
-            item("lanes", "Lane Overview", ~p"/cas/lanes"),
-            item("alarms", "Alarm Queue", ~p"/cas/alarms"),
-            item("inspections", "Secondary Inspections", ~p"/inspections"),
-            item("reports", "Screening Reports", ~p"/reports")
-          ]
-
-        _ ->
-          []
-      end
-
-    work =
-      work ++
-        [
-          can.(:review_flagged) && item("flagged", "Flagged Passes", ~p"/reviews"),
-          item("applications", "All Applications", ~p"/applications")
-        ]
-
-    work = Enum.filter(work, & &1)
-
-    admin =
-      [
-        can.(:manage_devices) && item("devices", "RPM Devices", ~p"/admin/devices"),
-        can.(:manage_users) && item("users", "Users & Roles", ~p"/admin/users"),
-        can.(:manage_fees) && item("fees", "Fee Schedule", ~p"/admin/fees"),
-        can.(:reconcile_payments) && item("payments", "Payments", ~p"/admin/payments"),
-        can.(:view_audit) && item("audit", "Audit Trail", ~p"/admin/audit"),
-        can.(:view_integrations) && item("integrations", "Integrations", ~p"/admin/integrations"),
-        can.(:manage_api_clients) && item("api_clients", "API Clients", ~p"/admin/api-clients")
-      ]
-      |> Enum.filter(& &1)
-
-    tools =
-      if Knra.Simulator.enabled?() and can.(:simulate),
-        do: [item("simulator", "RPM & M-Pesa Simulator", ~p"/simulator")],
-        else: []
-
-    [{"Screens", work}, {"Administration", admin}, {"Sandbox", tools}]
-  end
-
-  defp item(key, label, path), do: %{key: key, label: label, path: path}
+  defp nav_items(scope), do: KnraWeb.Nav.sections(scope)
 
   @doc "Centered card layout for login and account pages."
   attr :flash, :map, required: true

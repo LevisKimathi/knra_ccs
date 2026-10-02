@@ -2,7 +2,6 @@ defmodule Knra.Accounts.User do
   use Ecto.Schema
   import Ecto.Changeset
 
-  @roles ~w(rpm_operator cas_operator field_officer checking_officer verification_officer supervisor super_admin)
   @statuses ~w(active suspended deactivated)
 
   schema "users" do
@@ -21,27 +20,14 @@ defmodule Knra.Accounts.User do
     timestamps(type: :utc_datetime)
   end
 
-  def roles, do: @roles
-  def statuses, do: @statuses
+  alias Knra.Accounts.Roles
 
-  @role_labels %{
-    "rpm_operator" => "RPM operator",
-    "cas_operator" => "CAS operator",
-    "field_officer" => "Field inspection officer",
-    "checking_officer" => "Checking officer",
-    "verification_officer" => "Verification officer",
-    "supervisor" => "Supervisor / administrator",
-    "super_admin" => "Super administrator"
-  }
-
-  def role_label(role), do: Map.get(@role_labels, role, role)
-  def role_options, do: Enum.map(@roles, &{role_label(&1), &1})
+  def role_label(role), do: Roles.label(role)
+  def role_options, do: Roles.options()
 
   @doc "Roles a user may assign: only super admins can create or promote super admins."
-  def assignable_role_options(%__MODULE__{role: "super_admin"}), do: role_options()
-
-  def assignable_role_options(_),
-    do: @roles |> Enum.reject(&(&1 == "super_admin")) |> Enum.map(&{role_label(&1), &1})
+  def assignable_role_options(%__MODULE__{role: "super_admin"}), do: Roles.options()
+  def assignable_role_options(_), do: Roles.options(exclude: ["super_admin"])
 
   def active?(%__MODULE__{status: "active"}), do: true
   def active?(_), do: false
@@ -57,7 +43,9 @@ defmodule Knra.Accounts.User do
     |> validate_required([:name, :role])
     |> validate_length(:name, max: 120)
     |> validate_length(:station, max: 120)
-    |> validate_inclusion(:role, @roles)
+    |> validate_change(:role, fn :role, role ->
+      if Roles.exists?(role), do: [], else: [role: "is not a known role"]
+    end)
     |> unique_constraint(:staff_number)
     |> then(fn cs ->
       if get_change(cs, :email) || is_nil(cs.data.id),

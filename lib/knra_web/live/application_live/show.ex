@@ -243,7 +243,7 @@ defmodule KnraWeb.ApplicationLive.Show do
       </div>
       <div :if={@app.review_status == "reviewed"} class="mt-1">
         Reviewed by {@app.reviewed_by && @app.reviewed_by.name} · {Knra.Time.format(@app.reviewed_at)}
-        <span :if={@app.review_note}> —     {@app.review_note}</span>
+        <span :if={@app.review_note}> —       {@app.review_note}</span>
       </div>
       <.form
         :if={@can_review and @app.review_status == "pending"}
@@ -880,7 +880,10 @@ defmodule KnraWeb.ApplicationLive.Show do
     |> assign(:app, app)
     |> assign(:page_title, Application.display_container(app.container_number))
     |> assign(:timeline, Screening.timeline(app))
-    |> assign(:active, active_nav(socket.assigns.current_scope.user.role))
+    |> assign(
+      :active,
+      socket.assigns.current_scope |> KnraWeb.Nav.back_for_application() |> elem(1)
+    )
     |> assign_new(:bank_form, fn ->
       to_form(
         Billing.change_bank_payment(%{
@@ -891,18 +894,8 @@ defmodule KnraWeb.ApplicationLive.Show do
     end)
   end
 
-  defp back_path(socket) do
-    case socket.assigns.current_scope.user.role do
-      "cas_operator" -> ~p"/cas/alarms"
-      "field_officer" -> ~p"/inspections"
-      r when r in ["checking_officer", "verification_officer"] -> ~p"/reports"
-      _ -> ~p"/applications"
-    end
-  end
-
-  defp active_nav("field_officer"), do: "inspections"
-  defp active_nav(r) when r in ["checking_officer", "verification_officer"], do: "reports"
-  defp active_nav(_), do: "applications"
+  defp back_path(socket),
+    do: socket.assigns.current_scope |> KnraWeb.Nav.back_for_application() |> elem(0)
 
   @impl true
   def handle_info({:application, _, ref, _}, %{assigns: %{ref: ref}} = socket),

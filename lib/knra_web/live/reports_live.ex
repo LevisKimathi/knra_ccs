@@ -81,12 +81,12 @@ defmodule KnraWeb.ReportsLive do
     drafts = {"Awaiting Screening Report", Screening.list_by_stage("report_draft")}
     checks = {"Awaiting Verification", Screening.list_by_stage("report_check")}
 
-    sections =
-      case socket.assigns.current_scope.user.role do
-        "checking_officer" -> [drafts, checks]
-        "verification_officer" -> [checks, drafts]
-        _ -> [drafts, checks]
-      end
+    scope = socket.assigns.current_scope
+    drafts? = Knra.Accounts.Policy.can?(scope, :draft_report)
+    verifies? = Knra.Accounts.Policy.can?(scope, :verify_report)
+
+    # Put the queue this user acts on first
+    sections = if verifies? and not drafts?, do: [checks, drafts], else: [drafts, checks]
 
     assign(socket, :sections, sections)
   end

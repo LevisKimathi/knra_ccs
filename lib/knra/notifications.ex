@@ -2,9 +2,12 @@ defmodule Knra.Notifications do
   @moduledoc """
   Notifications & alerts (M11).
 
-  In-app notices are broadcast per role on `"notifications:<role>"`; every
-  authenticated LiveView subscribes through `KnraWeb.Notify` and shows them as
-  toasts. Detentions and device faults are also emailed to supervisors.
+  In-app notices go to everyone whose role holds a given permission (e.g. alarms
+  to those who can see the alarm queue), on `"notifications:<permission>"`.
+  Every authenticated LiveView subscribes, through `KnraWeb.LiveHooks`, to the
+  topics of its user's permissions and shows notices as toasts (once, even when
+  several of the user's permissions match). Detentions and device faults are also
+  emailed to users whose role has "Receive alert emails".
   """
 
   require Logger
@@ -13,16 +16,21 @@ defmodule Knra.Notifications do
   alias Knra.Accounts.UserNotifier
   alias Knra.Screening.Application
 
-  def subscribe(role), do: Phoenix.PubSub.subscribe(Knra.PubSub, topic(role))
+  @doc "Subscribes the calling process to notices for every permission the user holds."
+  def subscribe(scope) do
+    for p <- Knra.Accounts.Policy.permissions(), Knra.Accounts.Policy.can?(scope, p) do
+      Phoenix.PubSub.subscribe(Knra.PubSub, topic(p))
+    end
 
-  # Super admins see every notification.
-  def notify(roles, level, message, path \\ nil) do
-    for role <- Enum.uniq(List.wrap(roles) ++ ["super_admin"]) do
-      Phoenix.PubSub.broadcast(
-        Knra.PubSub,
-        topic(role),
-        {:notification, %{level: level, message: message, path: path}}
-      )
+    :ok
+  end
+
+  @doc "Sends a notice to users holding any of `permissions`; `id` lets a user see it once."
+  def notify(permissions, level, message, path \\ nil) do
+    notice = %{id: System.unique_integer([:positive]), level: level, message: message, path: path}
+
+    for p <- List.wrap(permissions) do
+      Phoenix.PubSub.broadcast(Knra.PubSub, topic(p), {:notification, notice})
     end
 
     :ok
@@ -30,7 +38,7 @@ defmodule Knra.Notifications do
 
   def alarm_raised(%Application{} = app) do
     notify(
-      ["cas_operator", "supervisor"],
+      [:adjudicate, :view_lanes],
       :error,
       "Radiation alarm on #{lane(app)} — #{c(app)} awaiting adjudication.",
       "/applications/#{app.reference}"
@@ -39,7 +47,7 @@ defmodule Knra.Notifications do
 
   def secondary_assigned(%Application{} = app) do
     notify(
-      "field_officer",
+      :inspect,
       :info,
       "#{c(app)} diverted to secondary inspection.",
       "/applications/#{app.reference}"
@@ -48,7 +56,7 @@ defmodule Knra.Notifications do
 
   def detention(%Application{} = app, scope) do
     msg = "#{c(app)} (#{app.reference}) detained by #{scope.user.name}."
-    notify(["supervisor", "cas_operator"], :error, msg, "/applications/#{app.reference}")
+    notify([:adjudicate, :view_lanes], :error, msg, "/applications/#{app.reference}")
 
     email_supervisors("DETENTION: #{c(app)} — #{app.reference}", """
     #{msg}
@@ -60,7 +68,7 @@ defmodule Knra.Notifications do
 
   def flagged_for_review(%Application{} = app) do
     notify(
-      "supervisor",
+      :review_flagged,
       :error,
       "#{c(app)} (#{app.reference}) recorded without KenTrade confirmation — review needed.",
       "/reviews"
@@ -69,7 +77,7 @@ defmodule Knra.Notifications do
 
   def cleared(%Application{} = app) do
     notify(
-      ["cas_operator", "checking_officer", "verification_officer", "supervisor"],
+      [:view_lanes, :draft_report, :verify_report],
       :info,
       "#{c(app)} cleared — certificate #{app.certificate_number} issued.",
       "/applications/#{app.reference}"
@@ -80,16 +88,14 @@ defmodule Knra.Notifications do
     msg =
       "#{lane.name} (#{lane.device_code}) marked out of service by #{scope.user.name}: #{reason}"
 
-    notify(["supervisor", "cas_operator"], :error, msg, "/admin/devices")
+    notify([:view_lanes, :manage_devices], :error, msg, "/admin/devices")
     email_supervisors("RPM out of service: #{lane.name}", msg)
   end
 
-  # Alert emails are best effort: a mail outage must never undo or break the
+  # Alert emails go to roles with "Receive alert emails" (and super admins). Best effort: a mail outage must never undo or break the
   # detention / device-fault action that triggered them.
   defp email_supervisors(subject, body) do
-    for u <-
-          Accounts.list_active_users_by_role("supervisor") ++
-            Accounts.list_active_users_by_role("super_admin") do
+    for u <- Accounts.list_active_users_with_permission(:receive_alert_emails) do
       try do
         UserNotifier.deliver(u.email, subject, body)
       rescue
@@ -102,7 +108,7 @@ defmodule Knra.Notifications do
     :ok
   end
 
-  defp topic(role), do: "notifications:#{role}"
+  defp topic(permission), do: "notifications:#{permission}"
   defp c(app), do: Application.display_container(app.container_number)
   defp lane(%{lane: %{name: n}}), do: n
   defp lane(_), do: "RPM"

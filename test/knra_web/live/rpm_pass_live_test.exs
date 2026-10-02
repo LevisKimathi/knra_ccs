@@ -207,7 +207,7 @@ defmodule KnraWeb.RpmPassLiveTest do
   end
 
   describe "record anyway (no KenTrade confirmation)" do
-    defp params(ctx, extra \\ %{}),
+    defp params(ctx, extra),
       do:
         Map.merge(
           %{"container_number" => "ABCU1234560", "lane_id" => ctx.lane.id, "outcome" => "pass"},
