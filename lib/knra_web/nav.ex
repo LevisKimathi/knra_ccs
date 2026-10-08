@@ -49,6 +49,12 @@ defmodule KnraWeb.Nav do
         can.(:view_applications) && item("applications", "All Applications", ~p"/applications")
       ]
 
+    reporting = [
+      can.(:view_reports) &&
+        item("report_screening", "Screening Summary", ~p"/reporting/screening"),
+      can.(:view_reports) && item("report_events", "Events Report", ~p"/reporting/events")
+    ]
+
     admin = [
       can.(:manage_devices) && item("devices", "RPM Devices", ~p"/admin/devices"),
       can.(:manage_users) && item("users", "Users", ~p"/admin/users"),
@@ -67,7 +73,7 @@ defmodule KnraWeb.Nav do
           item("simulator", "RPM & M-Pesa Simulator", ~p"/simulator")
       ]
 
-    [{"Screens", work}, {"Administration", admin}, {"Sandbox", tools}]
+    [{"Screens", work}, {"Reporting", reporting}, {"Administration", admin}, {"Sandbox", tools}]
     |> Enum.map(fn {title, items} -> {title, Enum.filter(items, & &1)} end)
   end
 

@@ -253,7 +253,7 @@ defmodule KnraWeb.ApplicationLive.Show do
       </div>
       <div :if={@app.review_status == "reviewed"} class="mt-1">
         Reviewed by {@app.reviewed_by && @app.reviewed_by.name} · {Knra.Time.format(@app.reviewed_at)}
-        <span :if={@app.review_note}> —            {@app.review_note}</span>
+        <span :if={@app.review_note}> —                {@app.review_note}</span>
       </div>
       <.form
         :if={@can_review and @app.review_status == "pending"}

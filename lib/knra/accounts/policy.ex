@@ -37,6 +37,8 @@ defmodule Knra.Accounts.Policy do
      "Confirm a bank transfer against an invoice"},
     {:reconcile_payments, "Reconcile unmatched payments", "Payments",
      "Apply M-Pesa payments with a wrong account number"},
+    {:view_reports, "View reports", "Reporting",
+     "Screening summary and events reports, print and CSV export"},
     {:manage_devices, "Manage RPM devices", "Administration",
      "Register devices, take lanes out of service"},
     {:manage_users, "Manage users", "Administration",

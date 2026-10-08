@@ -211,7 +211,10 @@ defmodule KnraWeb.Admin.RolesLive do
     Policy.catalogue()
     |> Enum.group_by(&elem(&1, 2))
     |> Enum.sort_by(fn {g, _} ->
-      Enum.find_index(~w(Screening Payments Administration Notifications Sandbox), &(&1 == g))
+      Enum.find_index(
+        ~w(Screening Payments Reporting Administration Notifications Sandbox),
+        &(&1 == g)
+      )
     end)
   end
 

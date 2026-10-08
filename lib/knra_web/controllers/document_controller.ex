@@ -11,6 +11,7 @@ defmodule KnraWeb.DocumentController do
 
   plug :authorize, :print_documents when action in [:invoice, :certificate, :photo]
   plug :authorize, :view_audit when action in [:audit_export]
+  plug :authorize, :view_reports when action in [:report_export]
 
   def invoice(conn, %{"ref" => ref}) do
     app = Screening.get_application!(ref)
@@ -56,6 +57,34 @@ defmodule KnraWeb.DocumentController do
       send_resp(conn, 404, "Not found")
     end
   end
+
+  def report_export(conn, %{"report" => report} = params)
+      when report in ["screening", "events"] do
+    f = Knra.Reporting.filters(params)
+
+    csv =
+      if report == "screening",
+        do: Knra.Reporting.screening_csv(f),
+        else: Knra.Reporting.events_csv(f)
+
+    Audit.log(
+      conn.assigns.current_scope,
+      :report,
+      report,
+      "#{String.capitalize(report)} report exported",
+      "#{Date.to_iso8601(f.from)} to #{Date.to_iso8601(f.to)}"
+    )
+
+    conn
+    |> put_resp_content_type("text/csv")
+    |> put_resp_header(
+      "content-disposition",
+      ~s(attachment; filename="knra-ccs-#{report}-#{Date.to_iso8601(f.from)}-to-#{Date.to_iso8601(f.to)}.csv")
+    )
+    |> send_resp(200, csv)
+  end
+
+  def report_export(conn, _params), do: send_resp(conn, 404, "Not found")
 
   def audit_export(conn, params) do
     entries = Audit.search(Map.take(params, ~w(q actor object_type from to)), 100_000)

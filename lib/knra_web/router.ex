@@ -68,6 +68,7 @@ defmodule KnraWeb.Router do
     get "/applications/:ref/certificate", DocumentController, :certificate
     get "/applications/:ref/photos/:file", DocumentController, :photo
     get "/admin/audit/export", DocumentController, :audit_export
+    get "/reporting/:report/export", DocumentController, :report_export
 
     live_session :require_authenticated_user,
       on_mount: [{KnraWeb.UserAuth, :require_authenticated}, {KnraWeb.LiveHooks, :default}] do
@@ -87,6 +88,8 @@ defmodule KnraWeb.Router do
       live "/admin/users", Admin.UsersLive, :index
       live "/admin/users/new", Admin.UsersLive, :new
       live "/admin/users/:id/edit", Admin.UsersLive, :edit
+      live "/reporting/screening", Reporting.ScreeningLive
+      live "/reporting/events", Reporting.EventsLive
       live "/admin/settings", Admin.SettingsLive
       live "/admin/roles", Admin.RolesLive, :index
       live "/admin/roles/new", Admin.RolesLive, :new
