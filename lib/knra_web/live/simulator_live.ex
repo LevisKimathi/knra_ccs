@@ -111,6 +111,97 @@ defmodule KnraWeb.SimulatorLive do
         </.card>
       </div>
 
+      <.card title="Containers Answered Not Found" class="mt-5" id="unanswered-card">
+        <:actions>
+          <.form for={%{}} as={:unanswered} id="unanswered-period" phx-change="unanswered_period">
+            <select name="unanswered[days]" class="select select-sm">
+              <option :for={d <- [1, 7, 30, 90]} value={d} selected={d == @unanswered_days}>
+                Last {d} {if d == 1, do: "day", else: "days"}
+              </option>
+            </select>
+          </.form>
+        </:actions>
+        <p class="mb-3 text-xs leading-relaxed text-muted">
+          Containers API clients (e.g. KenTrade) asked about and got NOT_FOUND, that still have no
+          screening. Clearing looks each one up in KenTrade, stores the consignment details, records a
+          simulated RPM pass and walks it through the real workflow to CLEARED. Test environments only.
+        </p>
+
+        <div :if={@unanswered != []} class="mb-3 overflow-x-auto">
+          <table class="w-full text-left text-[13px]">
+            <thead class="text-xs text-muted">
+              <tr class="border-b border-line">
+                <th class="py-2 pr-4">Container</th>
+                <th class="py-2 pr-4">Times asked</th>
+                <th class="py-2 pr-4">Last asked</th>
+                <th class="py-2 pr-4">By</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr :for={u <- @unanswered} class="border-b border-line-soft last:border-0">
+                <td class="py-2 pr-4"><.container_no number={u.container} /></td>
+                <td class="py-2 pr-4 tabular-nums">{u.asked}</td>
+                <td class="py-2 pr-4 text-xs text-muted">{Knra.Time.format(u.last_asked)}</td>
+                <td class="py-2 pr-4 font-mono text-xs">{Enum.join(u.clients, ", ")}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <.empty :if={@unanswered == []} text="No unanswered containers in this period." />
+        <p :if={@unanswered_invalid != []} class="mb-3 text-xs text-subtle">
+          Not valid container numbers, skipped: {Enum.join(@unanswered_invalid, ", ")}
+        </p>
+
+        <button
+          :if={@unanswered != []}
+          id="clear-unanswered"
+          phx-click="clear_unanswered"
+          class={btn(:primary)}
+          phx-disable-with="Looking up and clearing…"
+          data-confirm={"Look up #{length(@unanswered)} container(s) in KenTrade and walk each to CLEARED? This creates screening records and certificates."}
+          data-confirm-title="Clear Unanswered Containers"
+          data-confirm-button="Look Up and Clear"
+        >
+          Look Up in KenTrade and Clear ({length(@unanswered)})
+        </button>
+
+        <div :if={@unanswered_results != []} id="unanswered-results" class="mt-5 overflow-x-auto">
+          <table class="w-full text-left text-[13px]">
+            <thead class="text-xs text-muted">
+              <tr class="border-b border-line">
+                <th class="py-2 pr-4">Container</th>
+                <th class="py-2 pr-4">KenTrade</th>
+                <th class="py-2 pr-4">Result</th>
+                <th class="py-2 pr-4">Status API answer</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr :for={r <- @unanswered_results} class="border-b border-line-soft last:border-0">
+                <td class="py-2 pr-4"><.container_no number={r.container} /></td>
+                <td class="py-2 pr-4">
+                  <.pill tone={if(r.kentrade == "FOUND", do: :ok, else: :warn)}>{r.kentrade}</.pill>
+                </td>
+                <td class="py-2 pr-4">
+                  <%= case r.result do %>
+                    <% {:error, reason} -> %>
+                      <span class="text-xs text-bad">{Batch.error_message(reason)}</span>
+                    <% {_, app} -> %>
+                      <.link
+                        navigate={~p"/applications/#{app.reference}"}
+                        class="font-mono text-xs text-brand"
+                      >
+                        {app.reference}
+                      </.link>
+                      <.stage_badge stage={app.stage} />
+                  <% end %>
+                </td>
+                <td class="py-2 pr-4 font-mono text-xs">{r.api["status"]}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </.card>
+
       <.card title="Stage Containers in Bulk" class="mt-5">
         <p class="mb-3 text-xs leading-relaxed text-muted">
           Paste container numbers (e.g. from KenTrade), one per line, each optionally followed by the
@@ -202,6 +293,8 @@ defmodule KnraWeb.SimulatorLive do
      )
      |> assign(:batch_form, to_form(%{"text" => "", "default" => "spread"}, as: :batch))
      |> assign(:batch_results, [])
+     |> assign(unanswered_days: 7, unanswered_results: [])
+     |> load_unanswered()
      |> assign(:batch_placeholder, @batch_placeholder)
      |> assign(
        :pay_form,
@@ -232,6 +325,34 @@ defmodule KnraWeb.SimulatorLive do
          socket
          |> put_flash(:error, Screening.error_message(reason))
          |> assign(:rpm_form, to_form(p, as: :rpm))}
+    end
+  end
+
+  def handle_event("unanswered_period", %{"unanswered" => %{"days" => d}}, socket) do
+    {:noreply,
+     socket
+     |> assign(unanswered_days: String.to_integer(d), unanswered_results: [])
+     |> load_unanswered()}
+  end
+
+  def handle_event("clear_unanswered", _params, socket) do
+    containers = Enum.map(socket.assigns.unanswered, & &1.container)
+
+    case Batch.clear_unanswered(socket.assigns.current_scope, containers) do
+      {:ok, results} ->
+        failed = Enum.count(results, &match?({:error, _}, &1.result))
+
+        {:noreply,
+         socket
+         |> put_flash(
+           if(failed == 0, do: :info, else: :error),
+           "#{length(results) - failed} of #{length(results)} containers cleared."
+         )
+         |> assign(:unanswered_results, results)
+         |> load_unanswered()}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, Batch.error_message(reason))}
     end
   end
 
@@ -304,5 +425,10 @@ defmodule KnraWeb.SimulatorLive do
       )
 
     assign(socket, lanes: Devices.list_in_service_lanes(), pending: pending)
+  end
+
+  defp load_unanswered(socket) do
+    {containers, invalid} = Batch.unanswered(socket.assigns.unanswered_days)
+    assign(socket, unanswered: containers, unanswered_invalid: invalid)
   end
 end

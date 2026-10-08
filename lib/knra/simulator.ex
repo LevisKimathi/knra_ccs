@@ -20,7 +20,7 @@ defmodule Knra.Simulator do
   in-service lane. `alarm?` forces a gamma alarm; otherwise counts stay near
   background.
   """
-  def rpm_pass(scope, container_number, lane_code, alarm?) do
+  def rpm_pass(scope, container_number, lane_code, alarm?, opts \\ []) do
     with :ok <- check(scope),
          {:ok, lane_code} <- pick_lane(lane_code) do
       gamma =
@@ -30,16 +30,19 @@ defmodule Knra.Simulator do
       now = Knra.Time.now()
       local = Knra.Time.to_local(now)
 
-      Screening.ingest_occupancy(%{
-        occupancy_ref:
-          "OCC-#{Calendar.strftime(local, "%y%m%d%H%M%S")}-#{:rand.uniform(899) + 100}",
-        container_number: container_number,
-        lane_code: lane_code,
-        scanned_at: now,
-        gamma_cps: gamma,
-        neutron_cps: neutron,
-        alarmed: gamma > @gamma_threshold or neutron > 5
-      })
+      Screening.ingest_occupancy(
+        %{
+          occupancy_ref:
+            "OCC-#{Calendar.strftime(local, "%y%m%d%H%M%S")}-#{:rand.uniform(899) + 100}",
+          container_number: container_number,
+          lane_code: lane_code,
+          scanned_at: now,
+          gamma_cps: gamma,
+          neutron_cps: neutron,
+          alarmed: gamma > @gamma_threshold or neutron > 5
+        },
+        Keyword.take(opts, [:lookup])
+      )
     end
   end
 

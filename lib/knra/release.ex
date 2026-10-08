@@ -198,25 +198,14 @@ defmodule Knra.Release do
   spreads them over all statuses) and `lane:` (device code, default auto).
   """
   def simulate_statuses(text, opts \\ []) do
-    import Ecto.Query
-    alias Knra.Accounts.{Scope, User}
     alias Knra.Simulator.Batch
+    user = batch_user(opts)
 
-    user =
-      case opts[:as] do
-        nil ->
-          Knra.Repo.one(
-            from u in User,
-              where: u.role == "super_admin" and u.status == "active",
-              order_by: u.id,
-              limit: 1
-          )
-
-        email ->
-          Knra.Accounts.get_user_by_email(email)
-      end
-
-    case Batch.run(Scope.for_user(user), text, Keyword.take(opts, [:default, :lane])) do
+    case Batch.run(
+           Knra.Accounts.Scope.for_user(user),
+           text,
+           Keyword.take(opts, [:default, :lane])
+         ) do
       {:ok, results} ->
         IO.puts(
           String.pad_trailing("CONTAINER", 13) <>
@@ -231,6 +220,91 @@ defmodule Knra.Release do
       {:error, reason} ->
         IO.puts("Nothing staged: #{Batch.error_message(reason)}")
         {:error, reason}
+    end
+  end
+
+  @doc """
+  Finds containers that API clients (e.g. KenTrade) asked about in the last
+  `days` and got NOT_FOUND, looks each up in KenTrade, and walks it to CLEARED.
+  Test environments only (simulators enabled); runs as a super admin (`as:`).
+
+      /srv/knra/current/bin/knra rpc 'Knra.Release.clear_unanswered_queries(7)'
+
+  Pass `dry_run: true` to only list them.
+  """
+  def clear_unanswered_queries(days \\ 7, opts \\ []) do
+    alias Knra.Simulator.Batch
+    {containers, invalid} = Batch.unanswered(days)
+
+    IO.puts(
+      "#{length(containers)} container(s) answered NOT_FOUND in the last #{days} day(s) and still unscreened."
+    )
+
+    if invalid != [],
+      do: IO.puts("Skipped (not valid container numbers): #{Enum.join(invalid, ", ")}")
+
+    cond do
+      containers == [] ->
+        {:ok, 0, 0}
+
+      opts[:dry_run] ->
+        Enum.each(
+          containers,
+          &IO.puts(
+            "  #{&1.container}  asked #{&1.asked}x, last #{Knra.Time.format(&1.last_asked)}"
+          )
+        )
+
+        {:ok, :dry_run, length(containers)}
+
+      true ->
+        user = batch_user(opts)
+        scope = Knra.Accounts.Scope.for_user(user)
+
+        case Batch.clear_unanswered(
+               scope,
+               Enum.map(containers, & &1.container),
+               Keyword.take(opts, [:lane])
+             ) do
+          {:ok, results} ->
+            Enum.each(results, fn r ->
+              outcome =
+                case r.result do
+                  {:error, reason} -> "FAILED: " <> Batch.error_message(reason)
+                  {_, app} -> "#{app.reference} #{app.stage}"
+                end
+
+              IO.puts(
+                "  #{String.pad_trailing(r.container, 13)} KenTrade #{String.pad_trailing(r.kentrade, 10)} → #{outcome}"
+              )
+            end)
+
+            failed = Enum.count(results, &match?({:error, _}, &1.result))
+            IO.puts("#{length(results) - failed} cleared, #{failed} failed (as #{user.email}).")
+            {:ok, length(results) - failed, failed}
+
+          {:error, reason} ->
+            IO.puts("Nothing cleared: #{Batch.error_message(reason)}")
+            {:error, reason}
+        end
+    end
+  end
+
+  defp batch_user(opts) do
+    import Ecto.Query
+    alias Knra.Accounts.User
+
+    case opts[:as] do
+      nil ->
+        Knra.Repo.one(
+          from u in User,
+            where: u.role == "super_admin" and u.status == "active",
+            order_by: u.id,
+            limit: 1
+        )
+
+      email ->
+        Knra.Accounts.get_user_by_email(email)
     end
   end
 

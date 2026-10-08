@@ -178,16 +178,16 @@ defmodule Knra.Simulator.Batch do
   is still reachable from where it stands, otherwise starts a new RPM pass.
   A container whose latest screening is already at `target` is left alone.
   """
-  def stage(scope, container, target, lane \\ "auto")
+  def stage(scope, container, target, lane \\ "auto", opts \\ [])
 
-  def stage(_scope, container, "not_found", _lane) do
+  def stage(_scope, container, "not_found", _lane, _opts) do
     case latest(container) do
       nil -> :not_screened
       %Application{stage: stage} -> {:error, {:already_screened, stage}}
     end
   end
 
-  def stage(scope, container, target, lane) do
+  def stage(scope, container, target, lane, opts) do
     case latest(container) do
       %Application{stage: ^target} = app ->
         {:unchanged, app}
@@ -205,7 +205,7 @@ defmodule Knra.Simulator.Batch do
             (target in ["report_draft", "report_check"] and
                Knra.Settings.enabled?("auto_clear_no_alarm"))
 
-        with {:ok, app} <- Simulator.rpm_pass(scope, container, lane, alarm?) do
+        with {:ok, app} <- Simulator.rpm_pass(scope, container, lane, alarm?, opts) do
           advance(scope, app, target)
         end
     end
@@ -300,6 +300,108 @@ defmodule Knra.Simulator.Batch do
   end
 
   defp step(_scope, app, target), do: {:error, {:unreachable, app.stage, target}}
+
+  ## ------------------------------------------------------------------
+  ## Containers the status API answered NOT_FOUND
+
+  @doc """
+  Containers that API clients asked about in the last `days` and got
+  `NOT_FOUND`, and that still have no screening now. Read from the status API
+  call log, which keeps each container's answer (the audit trail entry for a
+  call only has the counts).
+
+  Returns `{containers, invalid}`: `containers` is a list of maps (`container`,
+  `asked`, `first_asked`, `last_asked`, `clients`), most recently asked first;
+  `invalid` lists numbers that are not valid container numbers.
+  """
+  def unanswered(days \\ 7) do
+    since = DateTime.add(Knra.Time.now(), -days * 86_400, :second)
+
+    asked =
+      Repo.all(
+        from l in Knra.Integrations.Log,
+          where:
+            l.system in ["status_api", "kentrade_inbound"] and l.outcome == "ok" and
+              l.inserted_at >= ^since,
+          select: {l.inserted_at, l.request, l.response}
+      )
+      |> Enum.flat_map(fn {at, request, response} ->
+        for %{"status" => "NOT_FOUND", "containerNumber" => c} <- List.wrap(response["items"]),
+            is_binary(c),
+            do: {KenTrade.normalise(c), at, request["client"]}
+      end)
+      |> Enum.group_by(&elem(&1, 0))
+
+    {valid, invalid} =
+      Enum.split_with(Map.keys(asked), &Regex.match?(~r/^[A-Z]{4}\d{7}$/, &1))
+
+    still_unanswered =
+      valid
+      |> Enum.map(&%{"containerNumber" => &1})
+      |> StatusQuery.lookup()
+      |> Enum.filter(&(&1["status"] == "NOT_FOUND"))
+      |> MapSet.new(& &1["containerNumber"])
+
+    containers =
+      valid
+      |> Enum.filter(&MapSet.member?(still_unanswered, &1))
+      |> Enum.map(fn c ->
+        times = Enum.map(asked[c], &elem(&1, 1))
+
+        %{
+          container: c,
+          asked: length(times),
+          first_asked: Enum.min(times, DateTime),
+          last_asked: Enum.max(times, DateTime),
+          clients: asked[c] |> Enum.map(&elem(&1, 2)) |> Enum.reject(&is_nil/1) |> Enum.uniq()
+        }
+      end)
+      |> Enum.sort_by(& &1.last_asked, {:desc, DateTime})
+
+    {containers, Enum.sort(invalid)}
+  end
+
+  @doc """
+  Looks each container up in KenTrade, records a simulated RPM pass carrying that
+  KenTrade result (so its consignment details are stored at once), and walks it
+  through the real workflow to CLEARED. Same rules as `run/3`: simulators
+  enabled and a super admin. Returns `{:ok, results}` with `container`,
+  `kentrade` (the TFP status), `result` and `api` (what the status API answers now).
+  """
+  def clear_unanswered(scope, containers, opts \\ []) do
+    lane = opts[:lane] || "auto"
+
+    with :ok <- check(scope) do
+      results =
+        Enum.map(containers, fn container ->
+          lookup =
+            KenTrade.container_enquiry(container,
+              reference_number: "STATUS-QUERY-BACKFILL",
+              event_datetime: Knra.Time.now()
+            )
+
+          kentrade =
+            case lookup do
+              {_, %KenTrade.Result{status: status}} -> status
+              _ -> "ERROR"
+            end
+
+          %{
+            container: container,
+            target: "cleared",
+            kentrade: kentrade,
+            result: stage(scope, container, "cleared", lane, lookup: lookup)
+          }
+        end)
+
+      api =
+        results
+        |> Enum.map(&%{"containerNumber" => &1.container})
+        |> StatusQuery.lookup()
+
+      {:ok, Enum.zip_with(results, api, &Map.put(&1, :api, &2))}
+    end
+  end
 
   @doc "Plain-text summary of results, for the console."
   def format(results) do
